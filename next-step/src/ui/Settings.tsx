@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Shell } from "../platform/desktop";
-import type { AppSettings } from "../services/ports";
+import type { AppSettings, ModelStatus } from "../services/ports";
 
 type Status = { kind: "ok" | "warn"; text: string } | null;
 
@@ -9,12 +9,30 @@ export function Settings({ shell }: { shell: Shell }) {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<Status>(null);
   const [busy, setBusy] = useState(false);
+  const [claudeKey, setClaudeKey] = useState("");
+  const [removeKey, setRemoveKey] = useState(false);
+  const [model, setModel] = useState<ModelStatus | null>(null);
 
   const load = useCallback(async () => {
     setDraft(await shell.getSettings());
     setPassword("");
+    setClaudeKey("");
+    setRemoveKey(false);
     setStatus(null);
+    setModel(await shell.ports.model.status().catch(() => null));
   }, [shell]);
+
+  // While the model downloads, check its progress every half second.
+  useEffect(() => {
+    if (model?.state !== "downloading") return;
+    const t = setTimeout(async () => setModel(await shell.ports.model.status().catch(() => model)), 500);
+    return () => clearTimeout(t);
+  }, [model, shell]);
+
+  const download = async () => {
+    await shell.ports.model.download().catch((e) => setModel({ state: "error", message: String(e) }));
+    setModel(await shell.ports.model.status());
+  };
 
   useEffect(() => {
     void load();
@@ -28,8 +46,10 @@ export function Settings({ shell }: { shell: Shell }) {
   const save = async (andTest: boolean) => {
     setBusy(true);
     try {
-      await shell.setSettings(draft, password);
+      await shell.setSettings(draft, password, removeKey ? "" : claudeKey.trim() || undefined);
       setPassword("");
+      setClaudeKey("");
+      setRemoveKey(false);
       const fresh = await shell.getSettings();
       setDraft(fresh);
       setStatus({ kind: "ok", text: andTest ? await shell.testBridge() : "Saved." });
@@ -88,6 +108,30 @@ export function Settings({ shell }: { shell: Shell }) {
           <textarea id="skip" className="field plain" rows={2} value={draft.skip} onChange={(e) => set({ skip: e.target.value })} placeholder="nhs.net, bank.co.uk, someone@example.com" />
           <div className="help">Addresses or whole domains, one per line or comma separated.</div>
         </div>
+        <section className="tear model">
+          <label className="title">Built-in model</label>
+          <ModelRow model={model} onDownload={() => void download()} />
+          <div className="help">Writes your tiny steps on this PC. Nothing you read leaves it. Without it, Next Step uses simple templates.</div>
+        </section>
+        <div>
+          <label className="title" htmlFor="ck">Claude API key (optional)</label>
+          <input
+            id="ck"
+            className="field plain"
+            type="password"
+            value={claudeKey}
+            onChange={(e) => (setClaudeKey(e.target.value), setRemoveKey(false))}
+            placeholder={draft.hasClaudeKey && !removeKey ? "Saved. Type to replace it." : "sk-ant-…"}
+            autoComplete="off"
+          />
+          <div className="help">
+            Only used when you tap Ask Claude, and only sends that one email. Kept in Windows Credential Manager.{" "}
+            {draft.hasClaudeKey && !removeKey && (
+              <button className="link" onClick={() => (setRemoveKey(true), setClaudeKey(""))}>Remove key</button>
+            )}
+            {removeKey && "Removed when you save."}
+          </div>
+        </div>
         {status && (
           <div className={`notice${status.kind === "warn" ? " warn" : ""}`} role="status">
             {status.text}
@@ -104,4 +148,41 @@ export function Settings({ shell }: { shell: Shell }) {
       </div>
     </main>
   );
+}
+
+const mb = (bytes: number) => `${Math.round(bytes / 1_000_000).toLocaleString("en-GB")} MB`;
+
+function ModelRow({ model, onDownload }: { model: ModelStatus | null; onDownload(): void }) {
+  if (!model) return <div className="notice">Checking…</div>;
+  switch (model.state) {
+    case "ready":
+      return (
+        <div className="dot-row model-row">
+          <span className="dot ok" aria-hidden="true" /> Ready · Qwen2.5 1.5B, runs on this PC
+        </div>
+      );
+    case "downloading":
+      return (
+        <div className="model-row col">
+          <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={model.total} aria-valuenow={model.done}>
+            <div style={{ width: `${model.total ? (model.done / model.total) * 100 : 0}%` }} />
+          </div>
+          <span className="help">Downloading… {mb(model.done)} of {mb(model.total)}. You can close this window.</span>
+        </div>
+      );
+    case "error":
+      return (
+        <div className="model-row col">
+          <div className="notice warn">{model.message}</div>
+          <button className="btn" onClick={onDownload}>Try again</button>
+        </div>
+      );
+    default:
+      return (
+        <div className="model-row">
+          <button className="btn" onClick={onDownload}>Download ({(model.sizeMb / 1000).toFixed(1)} GB)</button>
+          <span className="help">One-off, from Hugging Face.</span>
+        </div>
+      );
+  }
 }

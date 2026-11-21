@@ -25,6 +25,7 @@ export const settings = (patch: Partial<AppSettings> = {}): AppSettings => ({
   skip: "",
   minDays: 3,
   hasPassword: true,
+  hasClaudeKey: false,
   ...patch,
 });
 
@@ -33,7 +34,9 @@ export function fakePorts(batch: MailBatch, now = NOW): Ports & { files: Map<str
   let clock = now;
   return {
     files,
-    mail: { fetch: async () => batch },
+    mail: { fetch: async () => batch, message: async () => null },
+    model: { status: async () => ({ state: "missing", sizeMb: 1100 }), download: async () => undefined, generate: async () => "" },
+    claude: { ask: async () => Promise.reject(new Error("No Claude key")) },
     store: { read: async (n) => files.get(n) ?? null, write: async (n, t) => void files.set(n, t) },
     clock: {
       now: () => clock,

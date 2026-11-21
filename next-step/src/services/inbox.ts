@@ -4,6 +4,7 @@
 import { parseMessage } from "../core/headers";
 import { parseMarks, prune, snoozeUntil, type Marks } from "../core/marks";
 import { DEFAULT_RULES, spot, who, type Candidate } from "../core/spot";
+import type { Step } from "../core/steps";
 import { splitList, type AppSettings, type Ports } from "./ports";
 
 export const MARKS_FILE = "marks.json";
@@ -13,6 +14,7 @@ export interface Avoiding {
   from: string;
   subject: string;
   at: Date;
+  step: Step | null;
 }
 
 export interface InboxView {
@@ -25,13 +27,13 @@ export async function loadMarks(ports: Ports): Promise<Marks> {
   return parseMarks(await ports.store.read(MARKS_FILE));
 }
 
-async function saveMarks(ports: Ports, marks: Marks): Promise<void> {
+export async function saveMarks(ports: Ports, marks: Marks): Promise<void> {
   await ports.store.write(MARKS_FILE, JSON.stringify(prune(marks, ports.clock.now()), null, 2));
 }
 
 export function avoidingList(marks: Marks): Avoiding[] {
   return Object.entries(marks)
-    .flatMap(([messageId, m]) => (m.kind === "avoiding" ? [{ messageId, from: m.from, subject: m.subject, at: new Date(m.at) }] : []))
+    .flatMap(([messageId, m]) => (m.kind === "avoiding" ? [{ messageId, from: m.from, subject: m.subject, at: new Date(m.at), step: m.step ?? null }] : []))
     .sort((a, b) => b.at.getTime() - a.at.getTime());
 }
 

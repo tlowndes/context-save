@@ -2,10 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { who, type Candidate } from "../core/spot";
 import { waitingLabel } from "../core/time";
 import type { Shell } from "../platform/desktop";
+import type { Mark } from "../core/marks";
 import { check, markAvoiding, snooze, unmark, type InboxView } from "../services/inbox";
+import { finishStep, restoreMark, type StepView } from "../services/steps";
+import { StepScreen } from "./StepScreen";
 
 type Status = { kind: "loading" } | { kind: "ready"; view: InboxView } | { kind: "setup" } | { kind: "error"; message: string };
-type Undo = { text: string; ids: string[] } | null;
+type Undo = { text: string; ids: string[]; restore?: Mark } | null;
 
 /** Cards shown at once. More than this is a wall, not a nudge. */
 const MAX = 5;
@@ -20,11 +23,14 @@ const Gear = () => (
 export function Panel({ shell }: { shell: Shell }) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [undo, setUndo] = useState<Undo>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const [hasClaudeKey, setHasClaudeKey] = useState(false);
 
   const refresh = useCallback(async () => {
     setStatus((s) => (s.kind === "ready" ? s : { kind: "loading" }));
     try {
       const settings = await shell.getSettings();
+      setHasClaudeKey(settings.hasClaudeKey);
       if (!settings.bridgeUser || !settings.hasPassword) return setStatus({ kind: "setup" });
       const view = await check(shell.ports, settings);
       setStatus({ kind: "ready", view });
@@ -38,6 +44,7 @@ export function Panel({ shell }: { shell: Shell }) {
     void refresh();
     const off = shell.onOpen("panel-open", () => {
       setUndo(null);
+      setOpen(null);
       void refresh();
     });
     return () => void off.then((f) => f());
@@ -49,13 +56,53 @@ export function Panel({ shell }: { shell: Shell }) {
     await refresh();
   };
 
-  const yes = (c: Candidate) => act(() => markAvoiding(shell.ports, c), { text: `Noted: ${who(c.from)}.`, ids: [c.messageId] });
+  const yes = async (c: Candidate) => {
+    await markAvoiding(shell.ports, c);
+    setUndo(null);
+    // Straight to its tiny step: that's the point of saying yes.
+    setOpen(c.messageId);
+  };
   const notNow = (c: Candidate) => act(() => snooze(shell.ports, [c.messageId]), { text: `${who(c.from)} will come back tomorrow.`, ids: [c.messageId] });
   const snoozeAll = (cs: Candidate[]) => act(() => snooze(shell.ports, cs.map((c) => c.messageId)), { text: "All snoozed until tomorrow.", ids: cs.map((c) => c.messageId) });
-  const doUndo = () => undo && act(() => unmark(shell.ports, undo.ids), null);
+  const doUndo = () =>
+    undo && act(() => (undo.restore ? restoreMark(shell.ports, undo.ids[0], undo.restore) : unmark(shell.ports, undo.ids)), null);
+  const done = async (v: StepView) => {
+    const before = await finishStep(shell.ports, v.messageId);
+    setOpen(null);
+    setUndo({ text: "Nice one. Off your list.", ids: [v.messageId], restore: before });
+    await refresh();
+  };
 
   const view = status.kind === "ready" ? status.view : null;
   const cards = view?.candidates.slice(0, MAX) ?? [];
+
+  const footer = (
+      <footer className="tray-foot">
+        {undo ? (
+          <>
+            <span role="status">{undo.text}</span>
+            <button className="link" onClick={() => void doUndo()}>Undo</button>
+          </>
+        ) : (
+          <>
+            <span className="dot-row">
+              <span className={`dot${status.kind === "ready" ? " ok" : ""}`} aria-hidden="true" />
+              {status.kind === "ready" ? "Bridge connected · stays on this PC" : status.kind === "loading" ? "Checking…" : "Not connected"}
+            </span>
+            {!open && cards.length > 0 && <button className="link" onClick={() => void snoozeAll(view!.candidates)}>Snooze all 1 day</button>}
+          </>
+        )}
+      </footer>
+  );
+
+  if (open) {
+    return (
+      <main className="panel tray">
+        <StepScreen shell={shell} messageId={open} hasClaudeKey={hasClaudeKey} onBack={() => void (setOpen(null), refresh())} onDone={(v) => void done(v)} />
+        {footer}
+      </main>
+    );
+  }
 
   return (
     <main className="panel tray">
@@ -103,11 +150,16 @@ export function Panel({ shell }: { shell: Shell }) {
         {view && view.candidates.length > MAX && <div className="meta more">+{view.candidates.length - MAX} more after these</div>}
         {view && view.avoiding.length > 0 && (
           <section className="avoiding tear">
-            <span className="meta">You said these feel heavy · tiny steps come next</span>
+            <span className="meta">You said these feel heavy · tap one for a tiny step</span>
             <ul>
               {view.avoiding.map((a) => (
                 <li key={a.messageId}>
-                  <span className="who">{a.from}</span> <span className="muted">{a.subject}</span>
+                  <button className="heavy" onClick={() => (setUndo(null), setOpen(a.messageId))}>
+                    <span>
+                      <span className="who">{a.from}</span> <span className="muted">{a.subject}</span>
+                    </span>
+                    <span className="next">{a.step ? a.step.text : "Get a tiny step"} →</span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -115,22 +167,7 @@ export function Panel({ shell }: { shell: Shell }) {
         )}
       </div>
 
-      <footer className="tray-foot">
-        {undo ? (
-          <>
-            <span role="status">{undo.text}</span>
-            <button className="link" onClick={() => void doUndo()}>Undo</button>
-          </>
-        ) : (
-          <>
-            <span className="dot-row">
-              <span className={`dot${status.kind === "ready" ? " ok" : ""}`} aria-hidden="true" />
-              {status.kind === "ready" ? "Bridge connected · stays on this PC" : status.kind === "loading" ? "Checking…" : "Not connected"}
-            </span>
-            {cards.length > 0 && <button className="link" onClick={() => void snoozeAll(view!.candidates)}>Snooze all 1 day</button>}
-          </>
-        )}
-      </footer>
+      {footer}
     </main>
   );
 }

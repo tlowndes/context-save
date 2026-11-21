@@ -1,7 +1,8 @@
 //! Read-only access to Proton Mail Bridge over local IMAP.
 //!
-//! Folders are opened with EXAMINE (read-only) and bodies are never fetched:
-//! only the header block, with BODY.PEEK so nothing is marked as read.
+//! Folders are opened with EXAMINE (read-only) and everything is read with
+//! BODY.PEEK, so nothing is marked as read. The list only needs headers; a
+//! whole email is read only when you open its next step.
 //! Parsing happens in TypeScript (src/core/headers.ts), where it's tested.
 use std::net::{IpAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
@@ -113,6 +114,40 @@ pub fn fetch(s: &Settings, password: &str, days: u32) -> Result<MailBatch, Strin
     Ok(MailBatch { inbox: inbox?, sent: sent.unwrap_or_else(|| Ok(vec![]))? })
 }
 
+/// The start of a raw email is plenty to write a step from.
+const MAX_MESSAGE_BYTES: u32 = 256 * 1024;
+
+/// Message-IDs go inside a quoted IMAP string, so anything that could break out of it is refused.
+fn safe_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 512 && id.chars().all(|c| c.is_ascii_graphic() && c != '"' && c != '\\')
+}
+
+/// One email from the inbox by Message-ID, or None if it's gone.
+pub fn message(s: &Settings, password: &str, message_id: &str) -> Result<Option<String>, String> {
+    if !safe_id(message_id) {
+        return Err("That email's ID looks odd, so it wasn't read.".into());
+    }
+    let mut session = connect(s, password)?;
+    let found = (|| {
+        session.examine("INBOX").map_err(|e| format!("Couldn't open the inbox: {e}"))?;
+        let uid = match session
+            .uid_search(format!("HEADER Message-ID \"{message_id}\""))
+            .map_err(|e| format!("Couldn't search the inbox: {e}"))?
+            .into_iter()
+            .max()
+        {
+            Some(u) => u,
+            None => return Ok(None),
+        };
+        let fetched = session
+            .uid_fetch(uid.to_string(), format!("BODY.PEEK[]<0.{MAX_MESSAGE_BYTES}>"))
+            .map_err(|e| format!("Couldn't read the email: {e}"))?;
+        Ok(fetched.iter().find_map(|f| f.body()).map(|b| String::from_utf8_lossy(b).into_owned()))
+    })();
+    let _ = session.logout();
+    found
+}
+
 /// A quick check for Settings: logs in, opens the inbox read-only, logs out.
 pub fn test(s: &Settings, password: &str) -> Result<String, String> {
     let mut session = connect(s, password)?;
@@ -137,6 +172,14 @@ mod tests {
         }
         for h in ["imap.proton.me", "192.168.1.10", "10.0.0.1", ""] {
             assert!(!is_local(h), "{h}");
+        }
+    }
+
+    #[test]
+    fn message_ids_cant_escape_the_search() {
+        assert!(safe_id("<m1@mock>"));
+        for id in ["", "<a\"b>", "<a\\b>", "<a b>", "<a\r\nb>"] {
+            assert!(!safe_id(id), "{id:?}");
         }
     }
 

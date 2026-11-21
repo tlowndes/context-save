@@ -1,5 +1,6 @@
 //! Settings kept in the app's own config folder on this PC. The Bridge
-//! password is not here: it lives in Windows Credential Manager (secrets.rs).
+//! password and Claude key are not here: they live in Windows Credential
+//! Manager (secrets.rs).
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -19,6 +20,9 @@ pub struct Settings {
     /// Filled in when settings are read; never stored.
     #[serde(skip_deserializing)]
     pub has_password: bool,
+    /// Filled in when settings are read; never stored.
+    #[serde(skip_deserializing)]
+    pub has_claude_key: bool,
 }
 
 impl Default for Settings {
@@ -33,6 +37,7 @@ impl Default for Settings {
             skip: String::new(),
             min_days: 3,
             has_password: false,
+            has_claude_key: false,
         }
     }
 }
@@ -56,6 +61,7 @@ pub fn store(app: &AppHandle, s: &Settings) -> Result<(), String> {
     let p = file(app).ok_or("Couldn't find the settings folder.")?;
     let mut copy = s.clone();
     copy.has_password = false;
+    copy.has_claude_key = false;
     let text = serde_json::to_string_pretty(&copy).map_err(|e| e.to_string())?;
     write_atomic(&p, &text)
 }

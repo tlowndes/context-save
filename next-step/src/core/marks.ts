@@ -5,8 +5,10 @@
  * - avoiding: you said yes, it feels heavy. Phase 2 turns these into steps.
  * - snoozed: "Not now". Asks again once `until` has passed.
  */
+import type { Step } from "./steps";
+
 export type Mark =
-  | { kind: "avoiding"; at: string; from: string; subject: string }
+  | { kind: "avoiding"; at: string; from: string; subject: string; step?: Step }
   | { kind: "snoozed"; until: string };
 
 export type Marks = Record<string, Mark>;

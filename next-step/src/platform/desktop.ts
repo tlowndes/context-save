@@ -4,7 +4,7 @@
  */
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { AppSettings, MailBatch, Ports } from "../services/ports";
+import type { AppSettings, MailBatch, ModelStatus, Ports } from "../services/ports";
 
 export const isDesktop = (): boolean => {
   try {
@@ -19,8 +19,11 @@ export type View = "panel" | "settings";
 export interface Shell {
   ports: Ports;
   getSettings(): Promise<AppSettings>;
-  /** Saves settings. A non-empty password replaces the one in Credential Manager. */
-  setSettings(next: AppSettings, password: string): Promise<void>;
+  /**
+   * Saves settings. A non-empty password replaces the one in Credential Manager.
+   * claudeKey: undefined leaves it alone, "" removes it, anything else replaces it.
+   */
+  setSettings(next: AppSettings, password: string, claudeKey?: string): Promise<void>;
   /** Logs in to Bridge and opens the inbox read-only. Resolves to a short status line. */
   testBridge(): Promise<string>;
   /** Shows the number waiting on the tray icon's tooltip. */
@@ -33,7 +36,16 @@ export interface Shell {
 
 export function desktopShell(): Shell {
   const ports: Ports = {
-    mail: { fetch: (days) => invoke<MailBatch>("fetch_mail", { days }) },
+    mail: {
+      fetch: (days) => invoke<MailBatch>("fetch_mail", { days }),
+      message: (messageId) => invoke<string | null>("fetch_message", { messageId }),
+    },
+    model: {
+      status: () => invoke<ModelStatus>("model_status"),
+      download: () => invoke("model_download"),
+      generate: (prompt, maxTokens) => invoke<string>("model_generate", { prompt, maxTokens }),
+    },
+    claude: { ask: (system, user) => invoke<string>("ask_claude", { system, user }) },
     store: {
       read: (name) => invoke<string | null>("store_read", { name }),
       write: (name, text) => invoke("store_write", { name, text }),
@@ -43,7 +55,7 @@ export function desktopShell(): Shell {
   return {
     ports,
     getSettings: () => invoke<AppSettings>("get_settings"),
-    setSettings: (next, password) => invoke("set_settings", { next, password }),
+    setSettings: (next, password, claudeKey) => invoke("set_settings", { next, password, claudeKey: claudeKey ?? null }),
     testBridge: () => invoke<string>("test_bridge"),
     setWaiting: (n) => invoke("set_waiting", { n }),
     hide: (which) => invoke("hide_window", { which }),
