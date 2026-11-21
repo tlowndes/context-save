@@ -10,12 +10,18 @@ export interface MailBatch {
   sent: RawMessage[];
 }
 
-/** Read-only access to Proton Mail Bridge over local IMAP. */
+/** Proton Mail Bridge over local IMAP. Reads only, apart from moving between folders. */
 export interface Mail {
   /** Headers of every message from the last `days` days in the inbox and Sent. Never marks anything read. */
   fetch(days: number): Promise<MailBatch>;
   /** One whole email by Message-ID, read with BODY.PEEK. Null when it's gone. */
   message(messageId: string): Promise<string | null>;
+  /** Every folder Bridge shows, e.g. "INBOX", "Archive", "Folders/Receipts". */
+  folders(): Promise<string[]>;
+  /** Who-sent-what headers from one folder, to learn where things get filed. */
+  fetchFolder(folder: string, days: number): Promise<RawMessage[]>;
+  /** The only write: moves emails by Message-ID. Resolves to how many moved. */
+  move(messageIds: string[], from: string, to: string): Promise<number>;
 }
 
 export type ModelStatus =
@@ -72,6 +78,8 @@ export interface AppSettings {
   hasPassword: boolean;
   /** Set by the desktop side: a Claude API key is saved in Credential Manager. */
   hasClaudeKey: boolean;
+  /** Move mail from trusted senders by itself. */
+  autoSort: boolean;
 }
 
 export const splitList = (s: string): string[] =>

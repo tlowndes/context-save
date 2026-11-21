@@ -2,7 +2,7 @@
 
 Spots the emails you've been avoiding and turns each one into a single tiny step, like "Reply yes or no to Sam". Built for ADHD brains, where an unanswered email gets heavier every day it sits there.
 
-A Windows 10/11 tray app for **Proton Mail** via **Proton Mail Bridge**. It only reads: it never sends, deletes, moves or marks anything as read. Mail stays on your PC, unless you tap **Ask Claude** on one email.
+A Windows 10/11 tray app for **Proton Mail** via **Proton Mail Bridge**. It never sends, deletes or marks anything as read. The only change it makes is moving mail into your own folders from the Sort tab, always with Undo. Mail stays on your PC, unless you tap **Ask Claude** on one email.
 
 Built with Tauri 2, Rust, React and TypeScript, on the same shell and look as [Context Save](../README.md). It lives in this repo for now and can move to its own later.
 
@@ -52,10 +52,22 @@ Each email you're avoiding gets one step you can do in a few minutes, written by
 
 **Make it smaller** steps down ("Open the email from Sam and start a reply" → "Write the first word of a reply to Sam" → …) and never repeats the step you just had. **Done** takes it off your list; if it's still unanswered it comes back tomorrow. The step is kept with the mark, so reopening it doesn't rerun the model.
 
+## Sorting
+
+The **Sort** tab groups the rest of your inbox by sender and suggests a folder for each:
+
+1. Where you put them last time.
+2. Where you've already filed their mail (last 180 days of each folder), or, failing that, other mail from their company. Shared domains like gmail.com don't count.
+3. The built-in model's guess from your folder names, if it's downloaded. Asked once per sender and remembered.
+
+Tap **Move**, pick another folder, or **Leave** (hides that sender for a fortnight). Moving a sender to the same folder **3 times in a row** makes them trusted, and their mail then moves by itself on each check (Settings → switch it off). Everything moved today is listed with Undo, and an Undo stops that sender being trusted.
+
+It only moves between the inbox, **Archive** and your own **Folders/…** (never Trash, Spam or labels). Never sorted, by hand or by itself: emails from real people you haven't answered, emails you said you're avoiding, and anyone on "Never show". Choices live in `sorting.json` beside `marks.json`.
+
 ## Privacy
 
 - The Rust side connects only to a loopback address (`127.0.0.1`, `localhost`, `::1`) and refuses anything else. Because of that, it accepts Bridge's self-signed certificate.
-- Folders are opened with `EXAMINE` (read-only) and everything is fetched with `BODY.PEEK`, so nothing is marked as read. The list only reads headers; one email's body (the first 256 KB) is read only when you open its step, and it isn't stored.
+- Folders are opened with `EXAMINE` (read-only) for reading, and everything is fetched with `BODY.PEEK`, so nothing is marked as read. The list only reads headers; one email's body (the first 256 KB) is read only when you open its step, and it isn't stored.
 - The web view has no network access at all (see the CSP in `tauri.conf.json`). The only other connections the Rust side makes are the one-off model download from Hugging Face and Ask Claude.
 
 ## Architecture
@@ -68,13 +80,15 @@ src/
     marks.ts     Avoiding / snoozed, kept per Message-ID
     mime.ts      Raw email → readable text (multipart, base64, quoted-printable, HTML, quotes cut)
     steps.ts     Templates, "make it smaller", the prompt, cleaning a model's reply
+    sort.ts      Folder suggestions from filing history, trust, the folder prompt
   services/    Uses the ports below
     inbox.ts     Check mail, mark, snooze, undo
     steps.ts     Picks Claude / built-in model / template, remembers the step
+    sort.ts      Sort tab: check, move, undo, leave, auto-move, model guesses
   platform/    desktop.ts (Tauri) and mock.ts (browser preview)
-  ui/          Panel.tsx (tray flyout), StepScreen.tsx and Settings.tsx
+  ui/          Panel.tsx (tray flyout), StepScreen.tsx, SortScreen.tsx and Settings.tsx
 src-tauri/src/
-  mail.rs      Bridge over IMAP: STARTTLS, EXAMINE, BODY.PEEK fetches
+  mail.rs      Bridge over IMAP: STARTTLS, EXAMINE, BODY.PEEK fetches, folder list, UID MOVE
   model.rs     Built-in model: download + checksum, candle Qwen2, greedy decoding
   claude.rs    Ask Claude over the Messages API
   secrets.rs   Bridge password and Claude key in Windows Credential Manager
@@ -88,15 +102,15 @@ src-tauri/src/
 ## Tests
 
 ```powershell
-npm test                                       # TypeScript: headers, spotting, marks, MIME, steps
-cargo test --manifest-path src-tauri/Cargo.toml   # Rust: loopback-only, safe Message-IDs, Claude replies
+npm test                                       # TypeScript: headers, spotting, marks, MIME, steps, sorting
+cargo test --manifest-path src-tauri/Cargo.toml   # Rust: loopback-only, safe IDs and folders, Claude replies
 ```
 
 ## Roadmap
 
 1. **Read and spot**: Bridge, the rules above, the tray panel.
-2. **Tiny steps** (this): templates, the built-in model, Make it smaller, Ask Claude.
-3. **Sorting**: suggest a folder for the rest and move it with one tap; auto-move per sender once trusted, always with Undo.
+2. **Tiny steps**: templates, the built-in model, Make it smaller, Ask Claude.
+3. **Sorting** (this): suggest a folder for the rest and move it with one tap; auto-move per sender once trusted, always with Undo.
 4. **Vault**: accepted steps become Tasks-plugin lines with a 🆔 in `00 - Inbox/Next steps.md`; replies in Sent clear them.
 5. **Paper**: Flight Deck's Ticket Rail morning run, plus `flightdeck://print/<id>` for Print now.
 6. **Nudges and write-up**: a daily toast, snooze options, the portfolio case study.

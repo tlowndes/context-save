@@ -17,6 +17,8 @@ pub struct Settings {
     pub aliases: String,
     pub skip: String,
     pub min_days: u32,
+    /// Move mail from trusted senders by itself (Sort tab).
+    pub auto_sort: bool,
     /// Filled in when settings are read; never stored.
     #[serde(skip_deserializing)]
     pub has_password: bool,
@@ -36,6 +38,7 @@ impl Default for Settings {
             aliases: String::new(),
             skip: String::new(),
             min_days: 3,
+            auto_sort: true,
             has_password: false,
             has_claude_key: false,
         }

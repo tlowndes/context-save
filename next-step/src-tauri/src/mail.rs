@@ -3,6 +3,9 @@
 //! Folders are opened with EXAMINE (read-only) and everything is read with
 //! BODY.PEEK, so nothing is marked as read. The list only needs headers; a
 //! whole email is read only when you open its next step.
+//!
+//! The one write is `move_messages`, for the Sort tab: it moves emails
+//! between the inbox, Archive and your own folders, and nothing else.
 //! Parsing happens in TypeScript (src/core/headers.ts), where it's tested.
 use std::net::{IpAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
@@ -78,7 +81,7 @@ fn since(days: u32) -> String {
     (Utc::now() - Days::days(i64::from(days))).format("%d-%b-%Y").to_string()
 }
 
-fn headers_in(session: &mut Session, folder: &str, days: u32) -> Result<Vec<RawMessage>, String> {
+fn headers_in(session: &mut Session, folder: &str, days: u32, max: usize) -> Result<Vec<RawMessage>, String> {
     session.examine(folder).map_err(|e| format!("Couldn't open the {folder} folder: {e}"))?;
     let mut uids: Vec<u32> = session
         .uid_search(format!("SINCE {}", since(days)))
@@ -89,7 +92,7 @@ fn headers_in(session: &mut Session, folder: &str, days: u32) -> Result<Vec<RawM
         return Ok(vec![]);
     }
     uids.sort_unstable();
-    let start = uids.len().saturating_sub(MAX_PER_FOLDER);
+    let start = uids.len().saturating_sub(max);
     let set = uids[start..].iter().map(u32::to_string).collect::<Vec<_>>().join(",");
     let fetched = session
         .uid_fetch(set, "(UID INTERNALDATE BODY.PEEK[HEADER])")
@@ -108,8 +111,8 @@ fn headers_in(session: &mut Session, folder: &str, days: u32) -> Result<Vec<RawM
 
 pub fn fetch(s: &Settings, password: &str, days: u32) -> Result<MailBatch, String> {
     let mut session = connect(s, password)?;
-    let inbox = headers_in(&mut session, "INBOX", days);
-    let sent = inbox.as_ref().ok().map(|_| headers_in(&mut session, &s.sent_folder, days));
+    let inbox = headers_in(&mut session, "INBOX", days, MAX_PER_FOLDER);
+    let sent = inbox.as_ref().ok().map(|_| headers_in(&mut session, &s.sent_folder, days, MAX_PER_FOLDER));
     let _ = session.logout();
     Ok(MailBatch { inbox: inbox?, sent: sent.unwrap_or_else(|| Ok(vec![]))? })
 }
@@ -148,6 +151,73 @@ pub fn message(s: &Settings, password: &str, message_id: &str) -> Result<Option<
     found
 }
 
+/// Enough of each folder's recent mail to learn who gets filed where.
+const MAX_HISTORY: usize = 500;
+
+/// Every selectable folder Bridge shows, e.g. "INBOX", "Archive", "Folders/Receipts".
+pub fn folders(s: &Settings, password: &str) -> Result<Vec<String>, String> {
+    let mut session = connect(s, password)?;
+    let names = session.list(Some(""), Some("*")).map_err(|e| format!("Couldn't list your folders: {e}"));
+    let out = names.map(|names| {
+        names
+            .iter()
+            .filter(|n| !n.attributes().iter().any(|a| matches!(a, imap::types::NameAttribute::NoSelect)))
+            .map(|n| n.name().to_string())
+            .collect::<Vec<_>>()
+    });
+    let _ = session.logout();
+    out
+}
+
+fn safe_folder(name: &str) -> bool {
+    !name.is_empty() && name.len() <= 200 && !name.chars().any(|c| c.is_control())
+}
+
+/// Moves only go between these, never to Trash, Spam or labels.
+fn movable(name: &str) -> bool {
+    safe_folder(name) && (name == "INBOX" || name == "Archive" || (name.starts_with("Folders/") && name.len() > "Folders/".len()))
+}
+
+/// Headers from one of your folders, read-only.
+pub fn folder_headers(s: &Settings, password: &str, folder: &str, days: u32) -> Result<Vec<RawMessage>, String> {
+    if !safe_folder(folder) {
+        return Err("That folder name looks odd, so it wasn't read.".into());
+    }
+    let mut session = connect(s, password)?;
+    let out = headers_in(&mut session, folder, days, MAX_HISTORY);
+    let _ = session.logout();
+    out
+}
+
+/// Moves emails (by Message-ID) from one folder to another. Returns how many moved.
+pub fn move_messages(s: &Settings, password: &str, ids: &[String], from: &str, to: &str) -> Result<usize, String> {
+    if !movable(from) || !movable(to) || from == to {
+        return Err("Next Step only moves mail between your inbox, Archive and your own folders.".into());
+    }
+    if ids.is_empty() || ids.len() > 500 || !ids.iter().all(|i| safe_id(i)) {
+        return Err("Those emails' IDs look odd, so nothing was moved.".into());
+    }
+    let mut session = connect(s, password)?;
+    let result = (|| -> Result<usize, String> {
+        session.select(from).map_err(|e| format!("Couldn't open {from}: {e}"))?;
+        let mut uids = Vec::new();
+        for id in ids {
+            let found = session.uid_search(format!("HEADER Message-ID \"{id}\"")).map_err(|e| format!("Couldn't search {from}: {e}"))?;
+            uids.extend(found);
+        }
+        uids.sort_unstable();
+        uids.dedup();
+        if uids.is_empty() {
+            return Ok(0);
+        }
+        let set = uids.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
+        session.uid_mv(&set, to).map_err(|e| format!("Couldn't move to {to}: {e}"))?;
+        Ok(uids.len())
+    })();
+    let _ = session.logout();
+    result
+}
+
 /// A quick check for Settings: logs in, opens the inbox read-only, logs out.
 pub fn test(s: &Settings, password: &str) -> Result<String, String> {
     let mut session = connect(s, password)?;
@@ -180,6 +250,16 @@ mod tests {
         assert!(safe_id("<m1@mock>"));
         for id in ["", "<a\"b>", "<a\\b>", "<a b>", "<a\r\nb>"] {
             assert!(!safe_id(id), "{id:?}");
+        }
+    }
+
+    #[test]
+    fn moves_only_between_inbox_archive_and_your_folders() {
+        for f in ["INBOX", "Archive", "Folders/Receipts", "Folders/Job hunt"] {
+            assert!(movable(f), "{f}");
+        }
+        for f in ["Trash", "Spam", "Sent", "Labels/Work", "Folders/", "All Mail", "Folders/a\r\nb", ""] {
+            assert!(!movable(f), "{f:?}");
         }
     }
 

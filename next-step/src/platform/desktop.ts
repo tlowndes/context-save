@@ -4,6 +4,7 @@
  */
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import type { RawMessage } from "../core/headers";
 import type { AppSettings, MailBatch, ModelStatus, Ports } from "../services/ports";
 
 export const isDesktop = (): boolean => {
@@ -39,6 +40,9 @@ export function desktopShell(): Shell {
     mail: {
       fetch: (days) => invoke<MailBatch>("fetch_mail", { days }),
       message: (messageId) => invoke<string | null>("fetch_message", { messageId }),
+      folders: () => invoke<string[]>("list_folders"),
+      fetchFolder: (folder, days) => invoke<RawMessage[]>("fetch_folder", { folder, days }),
+      move: (messageIds, from, to) => invoke<number>("move_messages", { messageIds, from, to }),
     },
     model: {
       status: () => invoke<ModelStatus>("model_status"),

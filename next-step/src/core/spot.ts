@@ -31,7 +31,8 @@ export interface Candidate {
 const DAY = 86_400_000;
 
 /** Local parts that are never a person you owe a reply. */
-const MACHINE = /^(no-?reply|do-?not-?reply|donotreply|notifications?|notify|mailer-daemon|postmaster|bounces?|newsletters?|news|marketing|alerts?|automated|system)([+._-].*)?$/i;
+const MACHINE =
+  /^(no-?reply|do-?not-?reply|donotreply|notifications?|notify|mailer-daemon|postmaster|bounces?|newsletters?|news|marketing|alerts?|automated|system|auto-?confirm|confirmations?|orders?|order-?updates?|receipts?|billing|invoices?|statements?|updates?|digest|security|shipping|delivery|tracking)([+._-].*)?$/i;
 
 export function isMachine(address: string): boolean {
   return MACHINE.test(address.split("@")[0] ?? "");

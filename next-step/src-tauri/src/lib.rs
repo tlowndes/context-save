@@ -1,6 +1,6 @@
 //! Next Step desktop shell. Spotting and deciding live in TypeScript; this
 //! side owns what only native code can do: the tray, reading mail from
-//! Bridge, the Credential Manager, the built-in model, Ask Claude and the
+//! Bridge (and moving it, for the Sort tab), the Credential Manager, the built-in model, Ask Claude and the
 //! app's small files.
 mod claude;
 mod mail;
@@ -73,6 +73,28 @@ async fn fetch_mail(state: State<'_, AppState>, days: u32) -> Result<mail::MailB
 async fn fetch_message(state: State<'_, AppState>, message_id: String) -> Result<Option<String>, String> {
     let (s, pw) = with_password(&state)?;
     tauri::async_runtime::spawn_blocking(move || mail::message(&s, &pw, &message_id))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn list_folders(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let (s, pw) = with_password(&state)?;
+    tauri::async_runtime::spawn_blocking(move || mail::folders(&s, &pw)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn fetch_folder(state: State<'_, AppState>, folder: String, days: u32) -> Result<Vec<mail::RawMessage>, String> {
+    let (s, pw) = with_password(&state)?;
+    tauri::async_runtime::spawn_blocking(move || mail::folder_headers(&s, &pw, &folder, days.clamp(1, 365)))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn move_messages(state: State<'_, AppState>, message_ids: Vec<String>, from: String, to: String) -> Result<usize, String> {
+    let (s, pw) = with_password(&state)?;
+    tauri::async_runtime::spawn_blocking(move || mail::move_messages(&s, &pw, &message_ids, &from, &to))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -163,6 +185,9 @@ pub fn run() {
             set_settings,
             fetch_mail,
             fetch_message,
+            list_folders,
+            fetch_folder,
+            move_messages,
             model_status,
             model_download,
             model_generate,

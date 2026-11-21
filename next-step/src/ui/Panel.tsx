@@ -5,10 +5,12 @@ import type { Shell } from "../platform/desktop";
 import type { Mark } from "../core/marks";
 import { check, markAvoiding, snooze, unmark, type InboxView } from "../services/inbox";
 import { finishStep, restoreMark, type StepView } from "../services/steps";
+import { SortScreen } from "./SortScreen";
 import { StepScreen } from "./StepScreen";
 
 type Status = { kind: "loading" } | { kind: "ready"; view: InboxView } | { kind: "setup" } | { kind: "error"; message: string };
-type Undo = { text: string; ids: string[]; restore?: Mark } | null;
+type Undo = { text: string; ids: string[]; restore?: Mark; run?: () => Promise<void> } | null;
+type Tab = "waiting" | "sort";
 
 /** Cards shown at once. More than this is a wall, not a nudge. */
 const MAX = 5;
@@ -25,6 +27,10 @@ export function Panel({ shell }: { shell: Shell }) {
   const [undo, setUndo] = useState<Undo>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [hasClaudeKey, setHasClaudeKey] = useState(false);
+  const [tab, setTab] = useState<Tab>("waiting");
+  const [sortCount, setSortCount] = useState<number | null>(null);
+  const [sortKey, setSortKey] = useState(0);
+  const onUndoable = useCallback((text: string, run: () => Promise<void>) => setUndo({ text, ids: [], run }), []);
 
   const refresh = useCallback(async () => {
     setStatus((s) => (s.kind === "ready" ? s : { kind: "loading" }));
@@ -46,6 +52,7 @@ export function Panel({ shell }: { shell: Shell }) {
       setUndo(null);
       setOpen(null);
       void refresh();
+      setSortKey((k) => k + 1);
     });
     return () => void off.then((f) => f());
   }, [refresh, shell]);
@@ -64,8 +71,16 @@ export function Panel({ shell }: { shell: Shell }) {
   };
   const notNow = (c: Candidate) => act(() => snooze(shell.ports, [c.messageId]), { text: `${who(c.from)} will come back tomorrow.`, ids: [c.messageId] });
   const snoozeAll = (cs: Candidate[]) => act(() => snooze(shell.ports, cs.map((c) => c.messageId)), { text: "All snoozed until tomorrow.", ids: cs.map((c) => c.messageId) });
-  const doUndo = () =>
-    undo && act(() => (undo.restore ? restoreMark(shell.ports, undo.ids[0], undo.restore) : unmark(shell.ports, undo.ids)), null);
+  const doUndo = async () => {
+    if (!undo) return;
+    if (undo.run) {
+      await undo.run();
+      setUndo(null);
+      setSortKey((k) => k + 1);
+      return refresh();
+    }
+    await act(() => (undo.restore ? restoreMark(shell.ports, undo.ids[0], undo.restore) : unmark(shell.ports, undo.ids)), null);
+  };
   const done = async (v: StepView) => {
     const before = await finishStep(shell.ports, v.messageId);
     setOpen(null);
@@ -89,7 +104,7 @@ export function Panel({ shell }: { shell: Shell }) {
               <span className={`dot${status.kind === "ready" ? " ok" : ""}`} aria-hidden="true" />
               {status.kind === "ready" ? "Bridge connected · stays on this PC" : status.kind === "loading" ? "Checking…" : "Not connected"}
             </span>
-            {!open && cards.length > 0 && <button className="link" onClick={() => void snoozeAll(view!.candidates)}>Snooze all 1 day</button>}
+            {!open && tab === "waiting" && cards.length > 0 && <button className="link" onClick={() => void snoozeAll(view!.candidates)}>Snooze all 1 day</button>}
           </>
         )}
       </footer>
@@ -108,19 +123,39 @@ export function Panel({ shell }: { shell: Shell }) {
     <main className="panel tray">
       <header className="tray-head">
         <div className="top">
-          <span className="label">Next Step{view ? ` · ${view.candidates.length} waiting` : ""}</span>
+          <span className="label">Next Step</span>
           <button className="icon-btn" aria-label="Settings" onClick={() => void shell.show("settings")}>
             <Gear />
           </button>
         </div>
-        <h1>{view && view.candidates.length === 0 ? "Nothing heavy waiting" : "Avoiding any of these?"}</h1>
-        <p className="lead">
-          {view && view.candidates.length === 0
-            ? "Everyone who's waited 3+ days has had a reply, or you've already said."
-            : "Real people, no reply for 3+ days. Tap the ones that feel heavy."}
-        </p>
+        <div className="tabs" role="tablist">
+          <button role="tab" aria-selected={tab === "waiting"} onClick={() => (setTab("waiting"), setUndo(null))}>
+            Waiting{view ? <span className="n">{view.candidates.length}</span> : null}
+          </button>
+          <button role="tab" aria-selected={tab === "sort"} onClick={() => (setTab("sort"), setUndo(null))}>
+            Sort{sortCount !== null ? <span className="n">{sortCount}</span> : null}
+          </button>
+        </div>
+        {tab === "waiting" ? (
+          <>
+            <h1>{view && view.candidates.length === 0 ? "Nothing heavy waiting" : "Avoiding any of these?"}</h1>
+            <p className="lead">
+              {view && view.candidates.length === 0
+                ? "Everyone who's waited 3+ days has had a reply, or you've already said."
+                : "Real people, no reply for 3+ days. Tap the ones that feel heavy."}
+            </p>
+          </>
+        ) : (
+          <>
+            <h1>Tidy the rest</h1>
+            <p className="lead">Folders picked from where you've filed things before. People waiting on a reply stay put.</p>
+          </>
+        )}
       </header>
 
+      {tab === "sort" && status.kind === "ready" ? (
+        <SortScreen shell={shell} onUndoable={onUndoable} refreshKey={sortKey} onCount={setSortCount} />
+      ) : (
       <div className="list" aria-live="polite">
         {status.kind === "loading" && <div className="notice">Checking your mail…</div>}
         {status.kind === "setup" && (
@@ -166,6 +201,7 @@ export function Panel({ shell }: { shell: Shell }) {
           </section>
         )}
       </div>
+      )}
 
       {footer}
     </main>

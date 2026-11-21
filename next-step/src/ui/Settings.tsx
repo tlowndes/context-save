@@ -108,6 +108,10 @@ export function Settings({ shell }: { shell: Shell }) {
           <textarea id="skip" className="field plain" rows={2} value={draft.skip} onChange={(e) => set({ skip: e.target.value })} placeholder="nhs.net, bank.co.uk, someone@example.com" />
           <div className="help">Addresses or whole domains, one per line or comma separated.</div>
         </div>
+        <label className="check">
+          <input type="checkbox" checked={draft.autoSort} onChange={(e) => set({ autoSort: e.target.checked })} />
+          Move mail by itself once a sender is trusted (after you've moved them to the same folder 3 times). Always with Undo.
+        </label>
         <section className="tear model">
           <label className="title">Built-in model</label>
           <ModelRow model={model} onDownload={() => void download()} />
