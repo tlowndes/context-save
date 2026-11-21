@@ -27,14 +27,18 @@ export const settings = (patch: Partial<AppSettings> = {}): AppSettings => ({
   hasPassword: true,
   hasClaudeKey: false,
   autoSort: true,
+  vault: "C:/Vault",
   ...patch,
 });
 
-export function fakePorts(batch: MailBatch, now = NOW): Ports & { files: Map<string, string> } {
+export function fakePorts(batch: MailBatch, now = NOW): Ports & { files: Map<string, string>; note: { text: string | null } } {
   const files = new Map<string, string>();
+  const note: { text: string | null } = { text: null };
   let clock = now;
   return {
     files,
+    note,
+    vault: { read: async () => note.text, write: async (t) => void (note.text = t) },
     mail: { fetch: async () => batch, message: async () => null, folders: async () => ["INBOX", "Sent"], fetchFolder: async () => [], move: async () => 0 },
     model: { status: async () => ({ state: "missing", sizeMb: 1100 }), download: async () => undefined, generate: async () => "" },
     claude: { ask: async () => Promise.reject(new Error("No Claude key")) },

@@ -2,13 +2,14 @@
  * What you've said about each email, kept on this PC (never in the vault, as
  * it mentions who emailed you). Keyed by Message-ID.
  *
- * - avoiding: you said yes, it feels heavy. Phase 2 turns these into steps.
+ * - avoiding: you said yes, it feels heavy. It gets a tiny step, and a task id
+ *   once that step is added to your vault. Cleared when you reply.
  * - snoozed: "Not now". Asks again once `until` has passed.
  */
 import type { Step } from "./steps";
 
 export type Mark =
-  | { kind: "avoiding"; at: string; from: string; subject: string; step?: Step }
+  | { kind: "avoiding"; at: string; from: string; subject: string; step?: Step; taskId?: string }
   | { kind: "snoozed"; until: string };
 
 export type Marks = Record<string, Mark>;

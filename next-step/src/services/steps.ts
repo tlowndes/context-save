@@ -7,6 +7,7 @@ import { bodyText } from "../core/mime";
 import { chatPrompt, parseStep, smallerTemplate, STEP_SYSTEM, stepUserMessage, templateStep, type EmailForStep, type Step } from "../core/steps";
 import { loadMarks, saveMarks } from "./inbox";
 import type { Ports } from "./ports";
+import { setTaskDone } from "./tasks";
 
 export type StepMode = "first" | "smaller" | "claude";
 
@@ -16,6 +17,8 @@ export interface StepView {
   step: Step;
   /** Why a better source wasn't used, when it matters to you. */
   note: string | null;
+  /** 🆔 of its task in the vault, once added. */
+  taskId: string | null;
 }
 
 async function email(ports: Ports, messageId: string, from: string, subject: string): Promise<EmailForStep> {
@@ -60,22 +63,24 @@ export async function makeStep(ports: Ports, messageId: string, mode: StepMode):
 
   marks[messageId] = { ...mark, step };
   await saveMarks(ports, marks);
-  return { messageId, email: e, step, note };
+  return { messageId, email: e, step, note, taskId: mark.taskId ?? null };
 }
 
 /**
- * "Done": takes it off your list. If it's still unanswered it comes back to
+ * "Done": takes it off your list and ticks its task, if it has one. If it's still unanswered it comes back to
  * the "avoiding any of these?" list tomorrow morning. Returns what to restore on Undo.
  */
 export async function finishStep(ports: Ports, messageId: string): Promise<Mark | undefined> {
   const marks = await loadMarks(ports);
   const before = marks[messageId];
+  if (before?.kind === "avoiding" && before.taskId) await setTaskDone(ports, before.taskId, true).catch(() => undefined);
   marks[messageId] = { kind: "snoozed", until: snoozeUntil(ports.clock.now()).toISOString() };
   await saveMarks(ports, marks);
   return before;
 }
 
 export async function restoreMark(ports: Ports, messageId: string, mark: Mark | undefined): Promise<void> {
+  if (mark?.kind === "avoiding" && mark.taskId) await setTaskDone(ports, mark.taskId, false).catch(() => undefined);
   const marks = await loadMarks(ports);
   if (mark) marks[messageId] = mark;
   else delete marks[messageId];

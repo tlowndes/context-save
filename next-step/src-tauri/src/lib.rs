@@ -1,6 +1,6 @@
 //! Next Step desktop shell. Spotting and deciding live in TypeScript; this
 //! side owns what only native code can do: the tray, reading mail from
-//! Bridge (and moving it, for the Sort tab), the Credential Manager, the built-in model, Ask Claude and the
+//! Bridge (and moving it, for the Sort tab), the one tasks note in the vault, the Credential Manager, the built-in model, Ask Claude and the
 //! app's small files.
 mod claude;
 mod mail;
@@ -8,6 +8,7 @@ mod model;
 mod secrets;
 mod settings;
 mod tray;
+mod vault;
 mod windows;
 
 use std::sync::{Arc, Mutex};
@@ -36,6 +37,9 @@ fn get_settings(state: State<'_, AppState>) -> Result<settings::Settings, String
 fn set_settings(app: AppHandle, state: State<'_, AppState>, next: settings::Settings, password: String, claude_key: Option<String>) -> Result<(), String> {
     if next.port == 0 {
         return Err("The IMAP port should be a number, usually 1143.".into());
+    }
+    if !next.vault.is_empty() && !vault::is_vault(&next.vault) {
+        return Err("That folder isn't an Obsidian vault (it has no .obsidian folder inside).".into());
     }
     if !password.is_empty() {
         if next.bridge_user.is_empty() {
@@ -156,6 +160,7 @@ pub fn run() {
     tauri::Builder::default()
         // A second launch opens the panel instead of a second copy.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| windows::open_panel(app)))
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let s = settings::load(app.handle());
             let first_run = s.bridge_user.is_empty();
@@ -192,6 +197,8 @@ pub fn run() {
             model_download,
             model_generate,
             ask_claude,
+            vault::tasks_read,
+            vault::tasks_write,
             test_bridge,
             store_read,
             store_write,

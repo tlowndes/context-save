@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Permissions for Next Step's own windows. The webview has no network access; mail is read by the Rust side from Bridge on this PC only.",
   "windows": ["panel", "settings"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:allow-open"]
 }

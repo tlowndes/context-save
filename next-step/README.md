@@ -52,6 +52,18 @@ Each email you're avoiding gets one step you can do in a few minutes, written by
 
 **Make it smaller** steps down ("Open the email from Sam and start a reply" → "Write the first word of a reply to Sam" → …) and never repeats the step you just had. **Done** takes it off your list; if it's still unanswered it comes back tomorrow. The step is kept with the mark, so reopening it doesn't rerun the model.
 
+## Into your vault
+
+Choose your Obsidian vault in Settings. On a step, **Add to my tasks** appends one line to `00 - Inbox/Next steps.md` (made the first time):
+
+```
+- [ ] Reply yes or no to Sam #mail 🆔 em008 📅 2026-11-21
+```
+
+Ids count up from the highest `em` id in the note. Flight Deck's Ticket Rail morning run picks up today's 🆔 tasks and prints them as EM-008. Undo takes the line out again.
+
+When a later check sees your reply in Sent, the task is ticked (`✅ date`) and the email leaves your list, even if you never ticked the task yourself. **Done** on the step screen ticks it too (Undo unticks). Only the step goes in the vault, never the sender's address or what they wrote. Next Step reads and writes that one note and nothing else in the vault, saving through a temp file and reading it back, as Flight Deck and Context Save do.
+
 ## Sorting
 
 The **Sort** tab groups the rest of your inbox by sender and suggests a folder for each:
@@ -81,16 +93,19 @@ src/
     mime.ts      Raw email → readable text (multipart, base64, quoted-printable, HTML, quotes cut)
     steps.ts     Templates, "make it smaller", the prompt, cleaning a model's reply
     sort.ts      Folder suggestions from filing history, trust, the folder prompt
+    tasks.ts     Tasks-plugin lines: ids, add, tick, untick, remove
   services/    Uses the ports below
     inbox.ts     Check mail, mark, snooze, undo
     steps.ts     Picks Claude / built-in model / template, remembers the step
     sort.ts      Sort tab: check, move, undo, leave, auto-move, model guesses
+    tasks.ts     Add a step to the vault, tick it when you reply
   platform/    desktop.ts (Tauri) and mock.ts (browser preview)
   ui/          Panel.tsx (tray flyout), StepScreen.tsx, SortScreen.tsx and Settings.tsx
 src-tauri/src/
   mail.rs      Bridge over IMAP: STARTTLS, EXAMINE, BODY.PEEK fetches, folder list, UID MOVE
   model.rs     Built-in model: download + checksum, candle Qwen2, greedy decoding
   claude.rs    Ask Claude over the Messages API
+  vault.rs     Reads and writes 00 - Inbox/Next steps.md only
   secrets.rs   Bridge password and Claude key in Windows Credential Manager
   settings.rs  Settings file in the app's config folder
   tray.rs      Tray icon, menu and "N waiting" tooltip
@@ -102,7 +117,7 @@ src-tauri/src/
 ## Tests
 
 ```powershell
-npm test                                       # TypeScript: headers, spotting, marks, MIME, steps, sorting
+npm test                                       # TypeScript: headers, spotting, marks, MIME, steps, sorting, tasks
 cargo test --manifest-path src-tauri/Cargo.toml   # Rust: loopback-only, safe IDs and folders, Claude replies
 ```
 
@@ -110,7 +125,7 @@ cargo test --manifest-path src-tauri/Cargo.toml   # Rust: loopback-only, safe ID
 
 1. **Read and spot**: Bridge, the rules above, the tray panel.
 2. **Tiny steps**: templates, the built-in model, Make it smaller, Ask Claude.
-3. **Sorting** (this): suggest a folder for the rest and move it with one tap; auto-move per sender once trusted, always with Undo.
-4. **Vault**: accepted steps become Tasks-plugin lines with a 🆔 in `00 - Inbox/Next steps.md`; replies in Sent clear them.
+3. **Sorting**: suggest a folder for the rest and move it with one tap; auto-move per sender once trusted, always with Undo.
+4. **Vault** (this): accepted steps become Tasks-plugin lines with a 🆔 in `00 - Inbox/Next steps.md`; replies in Sent clear them.
 5. **Paper**: Flight Deck's Ticket Rail morning run, plus `flightdeck://print/<id>` for Print now.
 6. **Nudges and write-up**: a daily toast, snooze options, the portfolio case study.

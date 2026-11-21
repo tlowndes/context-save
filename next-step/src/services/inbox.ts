@@ -5,6 +5,7 @@ import { parseMessage } from "../core/headers";
 import { parseMarks, prune, snoozeUntil, type Marks } from "../core/marks";
 import { DEFAULT_RULES, spot, who, type Candidate } from "../core/spot";
 import type { Step } from "../core/steps";
+import { clearAnswered } from "./tasks";
 import { splitList, type AppSettings, type Ports } from "./ports";
 
 export const MARKS_FILE = "marks.json";
@@ -15,6 +16,8 @@ export interface Avoiding {
   subject: string;
   at: Date;
   step: Step | null;
+  /** 🆔 of its task in the vault, once added. */
+  taskId: string | null;
 }
 
 export interface InboxView {
@@ -33,7 +36,7 @@ export async function saveMarks(ports: Ports, marks: Marks): Promise<void> {
 
 export function avoidingList(marks: Marks): Avoiding[] {
   return Object.entries(marks)
-    .flatMap(([messageId, m]) => (m.kind === "avoiding" ? [{ messageId, from: m.from, subject: m.subject, at: new Date(m.at), step: m.step ?? null }] : []))
+    .flatMap(([messageId, m]) => (m.kind === "avoiding" ? [{ messageId, from: m.from, subject: m.subject, at: new Date(m.at), step: m.step ?? null, taskId: m.taskId ?? null }] : []))
     .sort((a, b) => b.at.getTime() - a.at.getTime());
 }
 
@@ -44,7 +47,9 @@ export async function check(ports: Ports, settings: AppSettings): Promise<InboxV
   const batch = await ports.mail.fetch(maxDays + 1);
   const inbox = batch.inbox.map((r) => parseMessage(r, "inbox"));
   const sent = batch.sent.map((r) => parseMessage(r, "sent"));
-  const marks = await loadMarks(ports);
+  // Replied to something you were avoiding? Tick its task and let it go.
+  const { marks, cleared } = await clearAnswered(ports, inbox, sent, await loadMarks(ports));
+  if (cleared > 0) await saveMarks(ports, marks);
   const rules = {
     ...DEFAULT_RULES,
     me: [settings.bridgeUser, ...splitList(settings.aliases)],

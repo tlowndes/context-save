@@ -27,6 +27,8 @@ export interface Shell {
   setSettings(next: AppSettings, password: string, claudeKey?: string): Promise<void>;
   /** Logs in to Bridge and opens the inbox read-only. Resolves to a short status line. */
   testBridge(): Promise<string>;
+  /** Folder picker for the vault. Null when cancelled. */
+  pickFolder(): Promise<string | null>;
   /** Shows the number waiting on the tray icon's tooltip. */
   setWaiting(n: number): Promise<void>;
   hide(which: View): Promise<void>;
@@ -49,6 +51,10 @@ export function desktopShell(): Shell {
       download: () => invoke("model_download"),
       generate: (prompt, maxTokens) => invoke<string>("model_generate", { prompt, maxTokens }),
     },
+    vault: {
+      read: () => invoke<string | null>("tasks_read"),
+      write: (text) => invoke("tasks_write", { text }),
+    },
     claude: { ask: (system, user) => invoke<string>("ask_claude", { system, user }) },
     store: {
       read: (name) => invoke<string | null>("store_read", { name }),
@@ -61,6 +67,11 @@ export function desktopShell(): Shell {
     getSettings: () => invoke<AppSettings>("get_settings"),
     setSettings: (next, password, claudeKey) => invoke("set_settings", { next, password, claudeKey: claudeKey ?? null }),
     testBridge: () => invoke<string>("test_bridge"),
+    pickFolder: async () => {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const picked = await open({ directory: true, title: "Choose your Obsidian vault" });
+      return typeof picked === "string" ? picked : null;
+    },
     setWaiting: (n) => invoke("set_waiting", { n }),
     hide: (which) => invoke("hide_window", { which }),
     show: (which) => invoke("show_window", { which }),

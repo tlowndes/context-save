@@ -16,7 +16,7 @@ const mail = (from: string, subject: string, daysAgo: number, extra: Record<stri
 };
 
 export function mockShell(): Shell {
-  let settings: AppSettings = { bridgeUser: ME, host: "127.0.0.1", port: 1143, sentFolder: "Sent", aliases: "", skip: "", minDays: 3, hasPassword: true, hasClaudeKey: false, autoSort: true };
+  let settings: AppSettings = { bridgeUser: ME, host: "127.0.0.1", port: 1143, sentFolder: "Sent", aliases: "", skip: "", minDays: 3, hasPassword: true, hasClaudeKey: false, autoSort: true, vault: "C:\\Users\\Tom\\Vault" };
   const files = new Map<string, string>();
   const inbox = [
     mail('"Sam Patel" <sam@example.com>', "Re: Saturday, are you in or out?", 6),
@@ -48,7 +48,19 @@ export function mockShell(): Shell {
   // Pretend download: ~1.1 GB in about 6 seconds.
   let model: ModelStatus = { state: "missing", sizeMb: 1120 };
   const sent = [mail(`Tom <${ME}>`, "Re: Sunday lunch?", 1, { To: "mum@example.com", "In-Reply-To": "<m104@mock>" })];
+  let note: string | null = "# Next steps\n\n- [x] Send the landlord two times 🆔 em007 📅 2026-11-14 ✅ 2026-11-14\n";
   const ports: Ports = {
+    vault: {
+      read: async () => {
+        if (!settings.vault) throw new Error("Choose your Obsidian vault in Settings first.");
+        return note;
+      },
+      write: async (t) => {
+        if (!settings.vault) throw new Error("Choose your Obsidian vault in Settings first.");
+        note = t;
+        console.info("[mock vault] Next steps.md\n" + t);
+      },
+    },
     mail: {
       fetch: async () => (await new Promise((r) => setTimeout(r, 400)), { inbox: [...inbox], sent }),
       folders: async () => ["INBOX", "Sent", "Drafts", "Archive", "Spam", "Trash", "All Mail", ...Object.keys(boxes).filter((b) => b.startsWith("Folders/")), "Labels/Work"],
@@ -107,6 +119,7 @@ export function mockShell(): Shell {
         hasClaudeKey: claudeKey === undefined ? settings.hasClaudeKey : claudeKey.length > 0,
       }),
     testBridge: async () => "Connected to Bridge. 5 emails in the last 31 days.",
+    pickFolder: async () => "C:\\Users\\Tom\\Vault",
     setWaiting: async () => undefined,
     hide: async () => undefined,
     show: async () => undefined,

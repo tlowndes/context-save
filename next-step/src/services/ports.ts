@@ -44,6 +44,17 @@ export interface Claude {
   ask(system: string, user: string): Promise<string>;
 }
 
+/**
+ * The one note Next Step may touch in your vault: `00 - Inbox/Next steps.md`.
+ * Rejects when no vault is chosen.
+ */
+export interface Vault {
+  /** The note's text, or null when it doesn't exist yet. */
+  read(): Promise<string | null>;
+  /** Saves safely (temp file, swap, read back) so Obsidian Sync never sees half a note. */
+  write(text: string): Promise<void>;
+}
+
 /** Small JSON files in the app's own folder on this PC. */
 export interface Store {
   read(name: string): Promise<string | null>;
@@ -58,6 +69,7 @@ export interface Ports {
   mail: Mail;
   model: Model;
   claude: Claude;
+  vault: Vault;
   store: Store;
   clock: Clock;
 }
@@ -78,6 +90,8 @@ export interface AppSettings {
   hasPassword: boolean;
   /** Set by the desktop side: a Claude API key is saved in Credential Manager. */
   hasClaudeKey: boolean;
+  /** Obsidian vault folder (the one holding .obsidian). Empty until chosen. */
+  vault: string;
   /** Move mail from trusted senders by itself. */
   autoSort: boolean;
 }

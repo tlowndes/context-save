@@ -108,6 +108,14 @@ export function Settings({ shell }: { shell: Shell }) {
           <textarea id="skip" className="field plain" rows={2} value={draft.skip} onChange={(e) => set({ skip: e.target.value })} placeholder="nhs.net, bank.co.uk, someone@example.com" />
           <div className="help">Addresses or whole domains, one per line or comma separated.</div>
         </div>
+        <div className="tear">
+          <label className="title" htmlFor="vault">Obsidian vault</label>
+          <div className="path">
+            <input id="vault" className="field plain" value={draft.vault} readOnly placeholder="Not chosen yet" />
+            <button className="btn" onClick={() => void shell.pickFolder().then((f) => f && set({ vault: f }))}>Choose…</button>
+          </div>
+          <div className="help">Steps you add go in <code>00 - Inbox/Next steps.md</code> as #mail tasks. Nothing else in the vault is touched.</div>
+        </div>
         <label className="check">
           <input type="checkbox" checked={draft.autoSort} onChange={(e) => set({ autoSort: e.target.checked })} />
           Move mail by itself once a sender is trusted (after you've moved them to the same folder 3 times). Always with Undo.
