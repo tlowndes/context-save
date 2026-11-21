@@ -1,0 +1,40 @@
+name: Next Step
+
+on:
+  push:
+    branches: [main]
+    paths: ["next-step/**", ".github/workflows/next-step.yml"]
+  pull_request:
+    paths: ["next-step/**", ".github/workflows/next-step.yml"]
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: next-step
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: next-step/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: next-step/src-tauri
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Build installer
+        run: npx tauri build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: next-step-installer
+          path: next-step/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
