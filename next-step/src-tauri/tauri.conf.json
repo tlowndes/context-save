@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Next Step",
+  "version": "0.1.0",
+  "identifier": "uk.co.tomlowndes.nextstep",
+  "build": {
+    "beforeDevCommand": "npm run dev:web",
+    "devUrl": "http://localhost:1422",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "panel",
+        "url": "index.html?view=panel",
+        "title": "Next Step",
+        "width": 380,
+        "height": 600,
+        "decorations": false,
+        "transparent": false,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false
+      },
+      {
+        "label": "settings",
+        "url": "index.html?view=settings",
+        "title": "Next Step settings",
+        "width": 560,
+        "height": 720,
+        "minWidth": 460,
+        "minHeight": 480,
+        "center": true,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "windows": { "webviewInstallMode": { "type": "downloadBootstrapper" } }
+  }
+}
