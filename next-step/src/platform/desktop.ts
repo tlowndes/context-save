@@ -15,7 +15,7 @@ export const isDesktop = (): boolean => {
   }
 };
 
-export type View = "panel" | "settings";
+export type View = "panel" | "settings" | "nudge";
 
 export interface Shell {
   ports: Ports;
@@ -33,8 +33,12 @@ export interface Shell {
   setWaiting(n: number): Promise<void>;
   hide(which: View): Promise<void>;
   show(which: View): Promise<void>;
-  /** Called each time the window is opened from the tray. */
-  onOpen(event: "panel-open" | "settings-open", fn: () => void): Promise<() => void>;
+  /** Shows the daily nudge card by the clock, without taking focus. */
+  showNudge(): Promise<void>;
+  /** Opens the panel on one email (its step, if you've said it's heavy). */
+  openEmail(messageId: string): Promise<void>;
+  /** Called each time the window is opened. The panel gets a Message-ID when opened for one email. */
+  onOpen(event: "panel-open" | "settings-open" | "nudge-open", fn: (messageId: string | null) => void): Promise<() => void>;
 }
 
 export function desktopShell(): Shell {
@@ -76,6 +80,8 @@ export function desktopShell(): Shell {
     setWaiting: (n) => invoke("set_waiting", { n }),
     hide: (which) => invoke("hide_window", { which }),
     show: (which) => invoke("show_window", { which }),
-    onOpen: (event, fn) => listen(event, () => fn()),
+    showNudge: () => invoke("show_nudge"),
+    openEmail: (messageId) => invoke("open_email", { messageId }),
+    onOpen: (event, fn) => listen<string | null>(event, (e) => fn(typeof e.payload === "string" ? e.payload : null)),
   };
 }

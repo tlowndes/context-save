@@ -42,6 +42,13 @@ describe("checkSort", () => {
     expect(v.groups[0].suggestion).toMatchObject({ folder: "Folders/Newsletters", reason: "sender" });
   });
 
+  it("leaves out folders on Never sort into", async () => {
+    const { ports } = setup([news(3), news(4)], { "Folders/Newsletters": [news(1, 20)] });
+    const v = await checkSort(ports, settings({ skipFolders: "Newsletters" }));
+    expect(v.folders).toEqual(["Archive"]);
+    expect(v.groups[0].suggestion).toBeNull();
+  });
+
   it("does nothing when there are no folders to sort into", async () => {
     const { ports } = setup([news(3)]);
     ports.mail.folders = async () => ["INBOX", "Sent"];

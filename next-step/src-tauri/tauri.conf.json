@@ -35,6 +35,20 @@
         "minHeight": 480,
         "center": true,
         "visible": false
+      },
+      {
+        "label": "nudge",
+        "url": "index.html?view=nudge",
+        "title": "Next Step nudge",
+        "width": 364,
+        "height": 168,
+        "decorations": false,
+        "transparent": false,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false
       }
     ],
     "security": {
@@ -43,8 +57,19 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
-    "windows": { "webviewInstallMode": { "type": "downloadBootstrapper" } }
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    }
   }
 }

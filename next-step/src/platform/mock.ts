@@ -16,8 +16,10 @@ const mail = (from: string, subject: string, daysAgo: number, extra: Record<stri
 };
 
 export function mockShell(): Shell {
-  let settings: AppSettings = { bridgeUser: ME, host: "127.0.0.1", port: 1143, sentFolder: "Sent", aliases: "", skip: "", minDays: 3, hasPassword: true, hasClaudeKey: false, autoSort: true, vault: "C:\\Users\\Tom\\Vault" };
+  let settings: AppSettings = { bridgeUser: ME, host: "127.0.0.1", port: 1143, sentFolder: "Sent", aliases: "", skip: "", minDays: 3, hasPassword: true, hasClaudeKey: false, autoSort: true, vault: "C:\\Users\\Tom\\Vault", skipFolders: "", nudgeAt: "10:30" };
   const files = new Map<string, string>();
+  // What the nudge card shows in the browser preview (?view=nudge).
+  files.set("nudge-now.json", JSON.stringify({ messageId: "<m100@mock>", kind: "avoiding", label: "NEXT STEP · 10:30", title: "Sam's been waiting 6 days", body: "Tiny step ready: reply yes or no to Sam.", more: 2 }));
   const inbox = [
     mail('"Sam Patel" <sam@example.com>', "Re: Saturday, are you in or out?", 6),
     mail('"Recruiter, Studio North" <jobs@studionorth.co>', "Portfolio review: any times next week?", 4),
@@ -135,6 +137,8 @@ export function mockShell(): Shell {
     setWaiting: async () => undefined,
     hide: async () => undefined,
     show: async () => undefined,
+    showNudge: async () => console.info("[mock] nudge shown"),
+    openEmail: async (id) => console.info("[mock] open " + id),
     onOpen: async () => () => undefined,
   };
 }

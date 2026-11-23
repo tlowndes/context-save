@@ -1,11 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { desktopShell, isDesktop, type Shell } from "./platform/desktop";
+import { NudgeCard } from "./ui/NudgeCard";
 import { Panel } from "./ui/Panel";
 import { Settings } from "./ui/Settings";
 import "./ui/styles.css";
 
-// One bundle serves both windows; `?view=` says which.
+// One bundle serves every window; `?view=` says which.
 const view = new URLSearchParams(window.location.search).get("view") ?? "panel";
 
 async function start() {
@@ -20,7 +21,7 @@ async function start() {
     return;
   }
   createRoot(document.getElementById("root")!).render(
-    <StrictMode>{view === "settings" ? <Settings shell={shell} /> : <Panel shell={shell} />}</StrictMode>,
+    <StrictMode>{view === "settings" ? <Settings shell={shell} /> : view === "nudge" ? <NudgeCard shell={shell} /> : <Panel shell={shell} />}</StrictMode>,
   );
 }
 

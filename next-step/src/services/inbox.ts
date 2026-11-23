@@ -19,6 +19,8 @@ export interface Avoiding {
   step: Step | null;
   /** Its task line in the vault (without the checkbox), once added. */
   task: string | null;
+  /** When the email arrived (null for marks made before this was kept). */
+  sent: Date | null;
   /** Its rail id, once Flight Deck has printed its ticket. */
   railId: string | null;
 }
@@ -41,7 +43,7 @@ export function avoidingList(marks: Marks, note: string | null = null): Avoiding
   return Object.entries(marks)
     .flatMap(([messageId, m]) =>
       m.kind === "avoiding"
-        ? [{ messageId, from: m.from, subject: m.subject, at: new Date(m.at), step: m.step ?? null, task: m.task ?? null, railId: m.task ? railId(note, m.task) : null }]
+        ? [{ messageId, from: m.from, subject: m.subject, at: new Date(m.at), sent: m.sent ? new Date(m.sent) : null, step: m.step ?? null, task: m.task ?? null, railId: m.task ? railId(note, m.task) : null }]
         : [],
     )
     .sort((a, b) => b.at.getTime() - a.at.getTime());
@@ -70,7 +72,7 @@ export async function check(ports: Ports, settings: AppSettings): Promise<InboxV
 /** "Yes, I'm avoiding it". */
 export async function markAvoiding(ports: Ports, c: Candidate): Promise<void> {
   const marks = await loadMarks(ports);
-  marks[c.messageId] = { kind: "avoiding", at: ports.clock.now().toISOString(), from: who(c.from), subject: c.subject };
+  marks[c.messageId] = { kind: "avoiding", at: ports.clock.now().toISOString(), sent: c.date.toISOString(), from: who(c.from), subject: c.subject };
   await saveMarks(ports, marks);
 }
 
