@@ -4,6 +4,9 @@ import type { AppSettings, ModelStatus } from "../services/ports";
 
 type Status = { kind: "ok" | "warn"; text: string } | null;
 
+/** Times offered for the daily nudge. */
+const NUDGE_TIMES = ["09:00", "10:30", "12:00", "14:00", "16:00"];
+
 export function Settings({ shell }: { shell: Shell }) {
   const [draft, setDraft] = useState<AppSettings | null>(null);
   const [password, setPassword] = useState("");
@@ -106,7 +109,23 @@ export function Settings({ shell }: { shell: Shell }) {
         <div>
           <label className="title" htmlFor="skip">Never show</label>
           <textarea id="skip" className="field plain" rows={2} value={draft.skip} onChange={(e) => set({ skip: e.target.value })} placeholder="nhs.net, bank.co.uk, someone@example.com" />
-          <div className="help">Addresses or whole domains, one per line or comma separated.</div>
+          <div className="help">Addresses or whole domains, one per line or comma separated. Never spotted, nudged about or sorted.</div>
+        </div>
+        <div>
+          <label className="title" htmlFor="skipFolders">Never sort into</label>
+          <textarea id="skipFolders" className="field plain" rows={2} value={draft.skipFolders} onChange={(e) => set({ skipFolders: e.target.value })} placeholder="Medical, Money" />
+          <div className="help">Proton folders that Sort never suggests or moves mail into.</div>
+        </div>
+        <div>
+          <label className="title" htmlFor="nudgeAt">Daily nudge</label>
+          <select id="nudgeAt" className="field plain" value={draft.nudgeAt} onChange={(e) => set({ nudgeAt: e.target.value })}>
+            {!draft.nudgeAt || NUDGE_TIMES.includes(draft.nudgeAt) ? null : <option value={draft.nudgeAt}>{draft.nudgeAt}</option>}
+            {NUDGE_TIMES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+            <option value="">Off</option>
+          </select>
+          <div className="help">One small card by the clock about whoever has waited longest. Later today brings it back in 3 hours. None after 7pm.</div>
         </div>
         <div className="tear">
           <label className="title" htmlFor="vault">Obsidian vault</label>

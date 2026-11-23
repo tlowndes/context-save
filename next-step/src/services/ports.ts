@@ -92,6 +92,10 @@ export interface AppSettings {
   aliases: string;
   /** Senders or domains to never show, comma or newline separated. */
   skip: string;
+  /** Folders Sort never suggests or moves mail into, comma or newline separated. */
+  skipFolders: string;
+  /** Daily nudge time, "10:30". Empty for no nudge. */
+  nudgeAt: string;
   minDays: number;
   /** Set by the desktop side: a Bridge password is saved in Windows Credential Manager. */
   hasPassword: boolean;

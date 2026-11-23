@@ -3,7 +3,8 @@ import { who, type Candidate } from "../core/spot";
 import { waitingLabel } from "../core/time";
 import type { Shell } from "../platform/desktop";
 import type { Mark } from "../core/marks";
-import { check, markAvoiding, snooze, unmark, type InboxView } from "../services/inbox";
+import { check, loadMarks, markAvoiding, snooze, unmark, type InboxView } from "../services/inbox";
+import { nudgeTick } from "../services/nudge";
 import { finishStep, restoreMark, type StepView } from "../services/steps";
 import { railCode } from "../core/tasks";
 import { SortScreen } from "./SortScreen";
@@ -49,14 +50,42 @@ export function Panel({ shell }: { shell: Shell }) {
 
   useEffect(() => {
     void refresh();
-    const off = shell.onOpen("panel-open", () => {
+    const off = shell.onOpen("panel-open", (messageId) => {
       setUndo(null);
       setOpen(null);
       void refresh();
       setSortKey((k) => k + 1);
+      // From the nudge's Show me: straight to its step if you've said it's heavy.
+      if (messageId) {
+        setTab("waiting");
+        void loadMarks(shell.ports).then((m) => m[messageId]?.kind === "avoiding" && setOpen(messageId));
+      }
     });
     return () => void off.then((f) => f());
   }, [refresh, shell]);
+
+  // The daily nudge: the panel window lives (hidden) all day, so it keeps the clock.
+  useEffect(() => {
+    let busy = false;
+    const tick = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const settings = await shell.getSettings();
+        if (await nudgeTick(shell.ports, settings)) await shell.showNudge();
+      } catch {
+        // Tried again next minute.
+      } finally {
+        busy = false;
+      }
+    };
+    const first = window.setTimeout(() => void tick(), 15_000);
+    const every = window.setInterval(() => void tick(), 60_000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(every);
+    };
+  }, [shell]);
 
   const act = async (fn: () => Promise<void>, next: Undo) => {
     await fn();

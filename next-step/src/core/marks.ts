@@ -9,7 +9,7 @@
 import type { Step } from "./steps";
 
 export type Mark =
-  | { kind: "avoiding"; at: string; from: string; subject: string; step?: Step; task?: string }
+  | { kind: "avoiding"; at: string; from: string; subject: string; step?: Step; task?: string; sent?: string }
   | { kind: "snoozed"; until: string };
 
 export type Marks = Record<string, Mark>;

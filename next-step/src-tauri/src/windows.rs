@@ -1,4 +1,4 @@
-//! Two windows: the tray panel and settings. Created hidden at start-up
+//! Three windows: the tray panel, settings, and the daily nudge card. Created hidden at start-up
 //! (tauri.conf.json) and shown on demand, so they open instantly.
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewWindow};
 
@@ -30,7 +30,30 @@ fn show(app: &AppHandle, label: &str, event: &str) {
 }
 
 pub fn open_panel(app: &AppHandle) {
+    hide(app, "nudge");
     show(app, "panel", "panel-open");
+}
+
+/// The nudge card sits where a Windows notification would, and never takes focus from what you're doing.
+#[tauri::command]
+pub fn show_nudge(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("nudge") {
+        place_by_tray(&w);
+        let _ = w.show();
+        let _ = app.emit_to("nudge", "nudge-open", ());
+    }
+}
+
+/// The nudge's Show me: the panel, opened on that email.
+#[tauri::command]
+pub fn open_email(app: AppHandle, message_id: String) {
+    hide(&app, "nudge");
+    if let Some(w) = app.get_webview_window("panel") {
+        place_by_tray(&w);
+        let _ = w.show();
+        let _ = w.set_focus();
+        let _ = app.emit_to("panel", "panel-open", Some(message_id));
+    }
 }
 
 pub fn toggle_panel(app: &AppHandle) {
@@ -58,6 +81,7 @@ pub fn show_window(app: AppHandle, which: String) {
     match which.as_str() {
         "panel" => open_panel(&app),
         "settings" => open_settings(&app),
+        "nudge" => show_nudge(app),
         _ => {}
     }
 }

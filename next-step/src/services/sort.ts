@@ -8,6 +8,7 @@ import { chatPrompt } from "../core/steps";
 import {
   buildHistory,
   destinations,
+  label,
   folderPrompt,
   groupInbox,
   isTrusted,
@@ -67,7 +68,8 @@ function protectedIds(inbox: Message[], sent: Message[], settings: AppSettings, 
 export async function checkSort(ports: Ports, settings: AppSettings): Promise<SortView> {
   const now = ports.clock.now();
   let state = tidy(await loadSort(ports), now);
-  const folders = destinations(await ports.mail.folders());
+  const never = new Set(splitList(settings.skipFolders));
+  const folders = destinations(await ports.mail.folders()).filter((f) => !never.has(f.toLowerCase()) && !never.has(label(f).toLowerCase()));
   if (folders.length === 0) return { folders, groups: [], moved: state.moved, autoMoved: 0 };
 
   const batch = await ports.mail.fetch(31);

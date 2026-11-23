@@ -28,6 +28,8 @@ export const settings = (patch: Partial<AppSettings> = {}): AppSettings => ({
   hasClaudeKey: false,
   autoSort: true,
   vault: "C:/Vault",
+  skipFolders: "",
+  nudgeAt: "10:30",
   ...patch,
 });
 

@@ -16,6 +16,10 @@ pub struct Settings {
     pub sent_folder: String,
     pub aliases: String,
     pub skip: String,
+    /// Folders Sort never suggests or moves mail into.
+    pub skip_folders: String,
+    /// Daily nudge time, "10:30". Empty for no nudge.
+    pub nudge_at: String,
     pub min_days: u32,
     /// Obsidian vault folder. Empty until chosen.
     pub vault: String,
@@ -39,6 +43,8 @@ impl Default for Settings {
             sent_folder: "Sent".into(),
             aliases: String::new(),
             skip: String::new(),
+            skip_folders: String::new(),
+            nudge_at: "10:30".into(),
             min_days: 3,
             vault: String::new(),
             auto_sort: true,

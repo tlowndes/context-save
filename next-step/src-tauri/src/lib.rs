@@ -207,6 +207,8 @@ pub fn run() {
             tray::set_waiting,
             windows::show_window,
             windows::hide_window,
+            windows::show_nudge,
+            windows::open_email,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Next Step");
