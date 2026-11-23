@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { StepSource } from "../core/steps";
 import type { Shell } from "../platform/desktop";
 import { railCode } from "../core/tasks";
+import type { ReadableEmail } from "../core/mime";
+import { readEmail } from "../services/email";
 import { makeStep, type StepMode, type StepView } from "../services/steps";
 import { addTask, printNow, railIdOf, removeAddedTask } from "../services/tasks";
 
@@ -9,6 +11,11 @@ const SOURCE: Record<StepSource, string> = { template: "Simple template", model:
 
 /** How long to watch the vault for Flight Deck's rail id after Print now. */
 const PRINT_WAIT_MS = 30_000;
+
+/** The read-only email view. The body lives only here, and is dropped on Hide. */
+type Reading = { state: "closed" } | { state: "loading" } | { state: "open"; email: ReadableEmail } | { state: "gone" } | { state: "error"; message: string };
+
+const when = (d: Date) => d.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 type Print = { state: "idle" } | { state: "sending" } | { state: "printed"; id: string; at: Date } | { state: "quiet" };
 
@@ -37,7 +44,19 @@ export function StepScreen({ shell, messageId, hasClaudeKey, onBack, onDone, onU
   const [busy, setBusy] = useState<StepMode | null>("first");
   const [error, setError] = useState<string | null>(null);
   const [print, setPrint] = useState<Print>({ state: "idle" });
+  const [reading, setReading] = useState<Reading>({ state: "closed" });
   const watching = useRef<number | null>(null);
+
+  /** Fetches the email from Bridge every time it's opened, so nothing is kept between looks. */
+  const openEmail = async () => {
+    setReading({ state: "loading" });
+    try {
+      const email = await readEmail(shell.ports, messageId);
+      setReading(email ? { state: "open", email } : { state: "gone" });
+    } catch (e) {
+      setReading({ state: "error", message: e instanceof Error ? e.message : String(e) });
+    }
+  };
 
   const stopWatching = () => {
     if (watching.current !== null) window.clearInterval(watching.current);
@@ -133,7 +152,36 @@ export function StepScreen({ shell, messageId, hasClaudeKey, onBack, onDone, onU
       </header>
 
       <div className="list" aria-live="polite">
-        {excerpt && <blockquote className="excerpt">{excerpt}{view && view.email.body.length > excerpt.length ? "…" : ""}</blockquote>}
+        {reading.state === "closed" ? (
+          <>
+            {excerpt && <blockquote className="excerpt">{excerpt}{view && view.email.body.length > excerpt.length ? "…" : ""}</blockquote>}
+            {view && (
+              <button className="link read-email" onClick={() => void openEmail()}>Read the email</button>
+            )}
+          </>
+        ) : (
+          <section className="email-view" aria-label="The original email, read-only" aria-busy={reading.state === "loading"}>
+            <div className="email-head">
+              <span className="label">The email</span>
+              <button className="link back" onClick={() => setReading({ state: "closed" })}>Hide</button>
+            </div>
+            {reading.state === "loading" && <p className="email-body">Fetching it from Bridge…</p>}
+            {reading.state === "gone" && <p className="email-body">It's not in your inbox any more.</p>}
+            {reading.state === "error" && <p className="email-body">{reading.message}</p>}
+            {reading.state === "open" && (
+              <>
+                <div className="email-meta">
+                  <span className="email-from" title={reading.email.fromAddress}>{reading.email.fromName}</span>
+                  <span className="email-subject">{reading.email.subject}</span>
+                  {reading.email.date && <span className="meta">{when(reading.email.date)}</span>}
+                </div>
+                <div className="email-body">{reading.email.body || "This email has no text to show."}</div>
+                {reading.email.cut && <span className="help">That's the start of a long email. Open Proton for the rest.</span>}
+              </>
+            )}
+            <span className="help email-note">Read-only. Stays unread in Proton, and isn't saved anywhere.</span>
+          </section>
+        )}
         <article className="card first step-card" aria-busy={busy !== null}>
           {print.state === "printed" ? (
             <div className="rail-head">

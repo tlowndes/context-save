@@ -43,7 +43,7 @@ export function mockShell(): Shell {
   };
   const idOf = (r: RawMessage) => /Message-ID: (.*)/.exec(r.headers)?.[1] ?? "";
   const bodies: Record<string, string> = {
-    "<m100@mock>": "Hey! Saturday at Rob's from 7. Are you in or out? Need numbers by Thursday.",
+    "<m100@mock>": "Hey!\n\nSaturday at Rob's from 7. Are you in or out? Need numbers by Thursday so he can sort the food.\n\nBring a bottle if you can.\n\nSam",
     "<m101@mock>": "Hi Tom, thanks for sending your portfolio. Any times next week for a 30 minute review call?",
     "<m102@mock>": "Hello, the boiler service is due. Which day suits you next week? Mornings only.",
   };
@@ -89,7 +89,10 @@ export function mockShell(): Shell {
         }
         return n;
       },
-      message: async (id) => (bodies[id] ? `Content-Type: text/plain; charset=utf-8\r\n\r\n${bodies[id]}\r\n` : null),
+      message: async (id) => {
+        const head = inbox.find((r) => idOf(r) === id)?.headers;
+        return head && bodies[id] ? `${head}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${bodies[id].replace(/\n/g, "\r\n")}\r\n` : null;
+      },
     },
     model: {
       status: async () => model,
