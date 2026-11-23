@@ -17,8 +17,8 @@ export interface StepView {
   step: Step;
   /** Why a better source wasn't used, when it matters to you. */
   note: string | null;
-  /** 🆔 of its task in the vault, once added. */
-  taskId: string | null;
+  /** Its task line in the vault (without the checkbox), once added. */
+  task: string | null;
 }
 
 async function email(ports: Ports, messageId: string, from: string, subject: string): Promise<EmailForStep> {
@@ -63,7 +63,7 @@ export async function makeStep(ports: Ports, messageId: string, mode: StepMode):
 
   marks[messageId] = { ...mark, step };
   await saveMarks(ports, marks);
-  return { messageId, email: e, step, note, taskId: mark.taskId ?? null };
+  return { messageId, email: e, step, note, task: mark.task ?? null };
 }
 
 /**
@@ -73,14 +73,14 @@ export async function makeStep(ports: Ports, messageId: string, mode: StepMode):
 export async function finishStep(ports: Ports, messageId: string): Promise<Mark | undefined> {
   const marks = await loadMarks(ports);
   const before = marks[messageId];
-  if (before?.kind === "avoiding" && before.taskId) await setTaskDone(ports, before.taskId, true).catch(() => undefined);
+  if (before?.kind === "avoiding" && before.task) await setTaskDone(ports, before.task, true).catch(() => undefined);
   marks[messageId] = { kind: "snoozed", until: snoozeUntil(ports.clock.now()).toISOString() };
   await saveMarks(ports, marks);
   return before;
 }
 
 export async function restoreMark(ports: Ports, messageId: string, mark: Mark | undefined): Promise<void> {
-  if (mark?.kind === "avoiding" && mark.taskId) await setTaskDone(ports, mark.taskId, false).catch(() => undefined);
+  if (mark?.kind === "avoiding" && mark.task) await setTaskDone(ports, mark.task, false).catch(() => undefined);
   const marks = await loadMarks(ports);
   if (mark) marks[messageId] = mark;
   else delete marks[messageId];

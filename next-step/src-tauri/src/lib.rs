@@ -8,6 +8,7 @@ mod model;
 mod secrets;
 mod settings;
 mod tray;
+mod flightdeck;
 mod vault;
 mod windows;
 
@@ -199,6 +200,7 @@ pub fn run() {
             ask_claude,
             vault::tasks_read,
             vault::tasks_write,
+            flightdeck::open_flightdeck,
             test_bridge,
             store_read,
             store_write,

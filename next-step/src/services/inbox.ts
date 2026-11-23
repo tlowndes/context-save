@@ -5,6 +5,7 @@ import { parseMessage } from "../core/headers";
 import { parseMarks, prune, snoozeUntil, type Marks } from "../core/marks";
 import { DEFAULT_RULES, spot, who, type Candidate } from "../core/spot";
 import type { Step } from "../core/steps";
+import { railId } from "../core/tasks";
 import { clearAnswered } from "./tasks";
 import { splitList, type AppSettings, type Ports } from "./ports";
 
@@ -16,8 +17,10 @@ export interface Avoiding {
   subject: string;
   at: Date;
   step: Step | null;
-  /** 🆔 of its task in the vault, once added. */
-  taskId: string | null;
+  /** Its task line in the vault (without the checkbox), once added. */
+  task: string | null;
+  /** Its rail id, once Flight Deck has printed its ticket. */
+  railId: string | null;
 }
 
 export interface InboxView {
@@ -34,9 +37,13 @@ export async function saveMarks(ports: Ports, marks: Marks): Promise<void> {
   await ports.store.write(MARKS_FILE, JSON.stringify(prune(marks, ports.clock.now()), null, 2));
 }
 
-export function avoidingList(marks: Marks): Avoiding[] {
+export function avoidingList(marks: Marks, note: string | null = null): Avoiding[] {
   return Object.entries(marks)
-    .flatMap(([messageId, m]) => (m.kind === "avoiding" ? [{ messageId, from: m.from, subject: m.subject, at: new Date(m.at), step: m.step ?? null, taskId: m.taskId ?? null }] : []))
+    .flatMap(([messageId, m]) =>
+      m.kind === "avoiding"
+        ? [{ messageId, from: m.from, subject: m.subject, at: new Date(m.at), step: m.step ?? null, task: m.task ?? null, railId: m.task ? railId(note, m.task) : null }]
+        : [],
+    )
     .sort((a, b) => b.at.getTime() - a.at.getTime());
 }
 
@@ -56,7 +63,8 @@ export async function check(ports: Ports, settings: AppSettings): Promise<InboxV
     skip: splitList(settings.skip),
     minDays: settings.minDays || DEFAULT_RULES.minDays,
   };
-  return { candidates: spot(inbox, sent, rules, marks, now), avoiding: avoidingList(marks), checkedAt: now };
+  const note = await ports.vault.read().catch(() => null);
+  return { candidates: spot(inbox, sent, rules, marks, now), avoiding: avoidingList(marks, note), checkedAt: now };
 }
 
 /** "Yes, I'm avoiding it". */

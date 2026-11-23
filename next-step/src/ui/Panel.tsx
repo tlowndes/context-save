@@ -5,7 +5,7 @@ import type { Shell } from "../platform/desktop";
 import type { Mark } from "../core/marks";
 import { check, markAvoiding, snooze, unmark, type InboxView } from "../services/inbox";
 import { finishStep, restoreMark, type StepView } from "../services/steps";
-import { ticketCode } from "../core/tasks";
+import { railCode } from "../core/tasks";
 import { SortScreen } from "./SortScreen";
 import { StepScreen } from "./StepScreen";
 
@@ -194,7 +194,7 @@ export function Panel({ shell }: { shell: Shell }) {
                     <span>
                       <span className="who">{a.from}</span> <span className="muted">{a.subject}</span>
                     </span>
-                    <span className="next">{a.step ? a.step.text : "Get a tiny step"}{a.taskId ? ` · ${ticketCode(a.taskId)}` : ""} →</span>
+                    <span className="next">{a.step ? a.step.text : "Get a tiny step"}{a.railId ? ` · ${railCode(a.railId)}` : ""} →</span>
                   </button>
                 </li>
               ))}

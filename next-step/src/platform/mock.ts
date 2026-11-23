@@ -48,7 +48,7 @@ export function mockShell(): Shell {
   // Pretend download: ~1.1 GB in about 6 seconds.
   let model: ModelStatus = { state: "missing", sizeMb: 1120 };
   const sent = [mail(`Tom <${ME}>`, "Re: Sunday lunch?", 1, { To: "mum@example.com", "In-Reply-To": "<m104@mock>" })];
-  let note: string | null = "# Next steps\n\n- [x] Send the landlord two times 🆔 em007 📅 2026-11-14 ✅ 2026-11-14\n";
+  let note: string | null = "# Next steps\n\n- [x] #task Send the landlord two times #mail 📅 2026-11-14 🆔 mai003 ✅ 2026-11-14\n";
   const ports: Ports = {
     vault: {
       read: async () => {
@@ -59,6 +59,18 @@ export function mockShell(): Shell {
         if (!settings.vault) throw new Error("Choose your Obsidian vault in Settings first.");
         note = t;
         console.info("[mock vault] Next steps.md\n" + t);
+      },
+    },
+    // Pretend Flight Deck: prints after a moment and gives the line a rail id, as the real one does.
+    flightDeck: {
+      open: async (link) => {
+        const body = new URL(link.replace("flightdeck://", "https://x/")).searchParams.get("task") ?? "";
+        setTimeout(() => {
+          if (!note) return;
+          const n = [...note.matchAll(/🆔 mai(\d{3})/g)].reduce((m, x) => Math.max(m, Number(x[1])), 3) + 1;
+          note = note.replace(`- [ ] ${body}`, `- [ ] ${body} 🆔 mai${String(n).padStart(3, "0")}`);
+          console.info("[mock Flight Deck] printed " + body);
+        }, 1500);
       },
     },
     mail: {
