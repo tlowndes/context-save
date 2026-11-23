@@ -55,6 +55,12 @@ export interface Vault {
   write(text: string): Promise<void>;
 }
 
+/** Flight Deck on this PC, which prints Ticket Rail tickets to the pocket printer. */
+export interface FlightDeck {
+  /** Opens a `flightdeck://print?…` link. Flight Deck starts if it isn't running. */
+  open(link: string): Promise<void>;
+}
+
 /** Small JSON files in the app's own folder on this PC. */
 export interface Store {
   read(name: string): Promise<string | null>;
@@ -70,6 +76,7 @@ export interface Ports {
   model: Model;
   claude: Claude;
   vault: Vault;
+  flightDeck: FlightDeck;
   store: Store;
   clock: Clock;
 }

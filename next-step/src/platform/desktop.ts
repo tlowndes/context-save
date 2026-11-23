@@ -55,6 +55,7 @@ export function desktopShell(): Shell {
       read: () => invoke<string | null>("tasks_read"),
       write: (text) => invoke("tasks_write", { text }),
     },
+    flightDeck: { open: (link) => invoke("open_flightdeck", { link }) },
     claude: { ask: (system, user) => invoke<string>("ask_claude", { system, user }) },
     store: {
       read: (name) => invoke<string | null>("store_read", { name }),
