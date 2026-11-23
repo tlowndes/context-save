@@ -130,4 +130,4 @@ cargo test --manifest-path src-tauri/Cargo.toml   # Rust: loopback-only, safe ID
 3. **Sorting**: suggest a folder for the rest and move it with one tap; auto-move per sender once trusted, always with Undo.
 4. **Vault** (this): accepted steps become Tasks-plugin lines with a 🆔 in `00 - Inbox/Next steps.md`; replies in Sent clear them.
 5. **Paper**: Flight Deck's Ticket Rail morning run, plus `flightdeck://print/<id>` for Print now.
-6. **Nudges and write-up**: a daily toast, snooze options, the portfolio case study.
+6. **Nudges and write-up**: a daily toast, snooze options, the portfolio [case study](CASE_STUDY.md).
