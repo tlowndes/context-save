@@ -52,6 +52,8 @@ Each email you're avoiding gets one step you can do in a few minutes, written by
 
 **Make it smaller** steps down ("Open the email from Sam and start a reply" → "Write the first word of a reply to Sam" → …) and never repeats the step you just had. **Done** takes it off your list; if it's still unanswered it comes back tomorrow. The step is kept with the mark, so reopening it doesn't rerun the model.
 
+**Read the email** shows the original email inside Next Step: sender and subject in bold, the body below. Proton has no reliable link to one email, so this is the way back to it. It's read-only and fetched fresh from Bridge each time you open it (with `BODY.PEEK`, so it stays unread). The body is only held while it's on screen and is never saved, in the vault or anywhere else. **Hide** drops it.
+
 ## Into your vault
 
 Choose your Obsidian vault in Settings. On a step, **Add to my tasks** appends one line to `00 - Inbox/Next steps.md` (made the first time):

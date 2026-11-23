@@ -3,7 +3,7 @@
  * Only the first part of the newest message matters: quoted replies,
  * signatures and HTML furniture are dropped. Pure and unit-tested.
  */
-import { headerMap } from "./headers";
+import { decodeWords, headerMap, parseAddresses } from "./headers";
 
 const bytesFrom = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0) & 0xff);
 
@@ -101,4 +101,49 @@ export function bodyText(raw: string, max = 1500): string {
   const text = plain ? plain.text : html ? htmlToText(html.text) : "";
   const clean = newestText(text);
   return clean.length > max ? `${clean.slice(0, max).trimEnd()}…` : clean;
+}
+
+/** One email as the read-only view shows it. Built fresh each time, never saved. */
+export interface ReadableEmail {
+  fromName: string;
+  fromAddress: string;
+  subject: string;
+  date: Date | null;
+  body: string;
+  /** True when the body was cut short (very long email, or only its start was fetched). */
+  cut: boolean;
+}
+
+/** Tidies text for reading: same line breaks, no runs of blank lines or stray spaces. */
+export function readableText(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) => l.replace(/[ \t]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * The whole readable email for the read-only view: sender, subject, date and body.
+ * Unlike bodyText, quoted replies and signatures stay in, so it reads like the original.
+ */
+export function readableEmail(raw: string, max = 20_000): ReadableEmail {
+  const h = headerMap(split(raw).head);
+  const from = parseAddresses(h.get("from"))[0];
+  const parsed = Date.parse(h.get("date") ?? "");
+  const all = parts(raw);
+  const plain = all.find((p) => p.type === "text/plain");
+  const html = all.find((p) => p.type === "text/html");
+  const text = readableText(plain ? plain.text : html ? htmlToText(html.text) : "");
+  const cut = text.length > max;
+  return {
+    fromName: from?.name || from?.address || "Unknown sender",
+    fromAddress: from?.address ?? "",
+    subject: decodeWords(h.get("subject") ?? "").trim() || "(no subject)",
+    date: Number.isNaN(parsed) ? null : new Date(parsed),
+    body: cut ? `${text.slice(0, max).trimEnd()}…` : text,
+    cut,
+  };
 }

@@ -129,6 +129,14 @@ textarea.field { resize: vertical; font: inherit; font-size: 14px; }
 .link.back:hover { color: var(--text); }
 .top .back + .label { margin-left: auto; }
 .excerpt { margin: 0; padding: 10px 12px; border-left: 2px solid var(--line-soft); color: var(--muted); font-size: 13px; line-height: 1.45; }
+.link.read-email { align-self: flex-start; font-size: 13px; }
+.email-view { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-sunk); }
+.email-head { display: flex; justify-content: space-between; align-items: center; }
+.email-meta { display: flex; flex-direction: column; gap: 2px; }
+.email-from, .email-subject { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.email-subject { font-size: 13px; }
+.email-body { margin: 0; max-height: 220px; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); font-size: 13px; line-height: 1.5; user-select: text; }
+.email-note { font-size: 12px; color: var(--muted); }
 .step-card { gap: 12px; padding: 16px; }
 .step { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.3; color: var(--text); }
 .step.thinking { color: var(--muted); font-weight: 400; font-size: 15px; }
