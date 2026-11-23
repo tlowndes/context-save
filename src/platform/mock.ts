@@ -60,6 +60,7 @@ export function mockShell(): Shell {
     setSettings: async (next) => ((settings = next), []),
     pickFolder: async () => "C:\\Users\\tom\\Vault",
     hide: async () => undefined,
+    minimise: async () => undefined,
     show: async () => undefined,
     onOpen: async () => () => undefined,
   };

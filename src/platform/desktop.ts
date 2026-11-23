@@ -34,6 +34,7 @@ export interface Shell {
   setSettings(next: AppSettings): Promise<HotkeyFailure[]>;
   pickFolder(): Promise<string | null>;
   hide(which: "save" | "restore" | "settings"): Promise<void>;
+  minimise(which: "save" | "restore" | "settings"): Promise<void>;
   show(which: "save" | "restore" | "settings"): Promise<void>;
   /** Called each time the window is opened from a shortcut or the tray. */
   onOpen(event: "save-open" | "restore-open" | "settings-open", fn: () => void): Promise<() => void>;
@@ -74,6 +75,7 @@ export function desktopShell(): Shell {
       return typeof picked === "string" ? picked : null;
     },
     hide: (which) => invoke("hide_window", { which }),
+    minimise: (which) => invoke("minimise_window", { which }),
     show: (which) => invoke("show_window", { which }),
     onOpen: (event, fn) => listen(event, () => fn()),
   };

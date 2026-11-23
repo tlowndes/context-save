@@ -52,6 +52,22 @@ export async function saveContext(ports: Ports, settings: Settings, snap: Snapsh
 /** Undo for a save: the note goes, nothing else was touched. */
 export const deleteSave = (ports: Ports, path: string) => ports.vault.remove(path);
 
+/** A deleted save, kept in memory so it can be put back. */
+export interface Deleted {
+  path: string;
+  text: string;
+}
+
+/** Deletes a save from the vault, keeping its exact text for Undo. */
+export async function removeSave(ports: Ports, path: string): Promise<Deleted> {
+  const text = await ports.vault.readText(path);
+  await ports.vault.remove(path);
+  return { path, text };
+}
+
+/** Puts a deleted save back, word for word, under its old name. */
+export const putBack = (ports: Ports, d: Deleted) => ports.vault.writeText(d.path, d.text);
+
 /** Saves newest first. Notes that aren't saves, or are damaged, are skipped. */
 export async function listSaves(ports: Ports, settings: Settings, limit = 30): Promise<SaveEntry[]> {
   const dir = savesDir(settings.vault);

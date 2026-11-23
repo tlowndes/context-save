@@ -71,6 +71,7 @@ pub fn run() {
             set_settings,
             hide_window,
             windows::show_window,
+            windows::minimise_window,
             hotkeys::apply_hotkeys,
             desktop::list_windows,
             desktop::list_monitors,

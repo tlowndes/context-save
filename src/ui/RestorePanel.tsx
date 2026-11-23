@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { summarise } from "../core/note";
 import { agoLabel, appsLine, whenLabel } from "../core/time";
 import type { SaveEntry } from "../core/types";
 import type { AppSettings, Shell } from "../platform/desktop";
 import { reportLine, restoreSave, undoRestore, type RestoreReport } from "../services/restore";
-import { listSaves } from "../services/saves";
-import { Alert, Tick } from "./icons";
+import { listSaves, putBack, removeSave, type Deleted } from "../services/saves";
+import { Alert, Bin, Tick } from "./icons";
+import { WindowControls } from "./WindowControls";
 
 type Phase =
   | { kind: "pick" }
@@ -19,10 +20,14 @@ export function RestorePanel({ shell }: { shell: Shell }) {
   const [picked, setPicked] = useState(0);
   const [tidy, setTidy] = useState(false);
   const [phase, setPhase] = useState<Phase>({ kind: "pick" });
+  const [deleted, setDeleted] = useState<{ d: Deleted; label: string } | null>(null);
+  const undoTimer = useRef<number | undefined>(undefined);
 
   const open = useCallback(async () => {
     setPhase({ kind: "pick" });
     setPicked(0);
+    window.clearTimeout(undoTimer.current);
+    setDeleted(null);
     const cfg = await shell.getSettings();
     setSettings(cfg);
     setSaves(cfg.vault ? await listSaves(shell.ports, cfg).catch(() => []) : []);
@@ -51,6 +56,31 @@ export function RestorePanel({ shell }: { shell: Shell }) {
     }
   };
 
+  const remove = async (i: number) => {
+    const entry = saves?.[i];
+    if (!entry) return;
+    try {
+      const d = await removeSave(shell.ports, entry.path);
+      setSaves((list) => (list ?? []).filter((x) => x.path !== entry.path));
+      setPicked((p) => Math.max(0, Math.min(p > i ? p - 1 : p, (saves?.length ?? 1) - 2)));
+      window.clearTimeout(undoTimer.current);
+      setDeleted({ d, label: entry.save.note || "Save with no note" });
+      undoTimer.current = window.setTimeout(() => setDeleted(null), 6000);
+    } catch (e) {
+      setPhase({ kind: "error", message: `Couldn't delete that save: ${e instanceof Error ? e.message : String(e)}` });
+    }
+  };
+
+  const unDelete = async () => {
+    if (!deleted || !settings) return;
+    window.clearTimeout(undoTimer.current);
+    await putBack(shell.ports, deleted.d);
+    setDeleted(null);
+    const list = await listSaves(shell.ports, settings).catch(() => saves ?? []);
+    setSaves(list);
+    setPicked(Math.max(0, list.findIndex((x) => x.path === deleted.d.path)));
+  };
+
   const undo = async () => {
     if (phase.kind !== "done") return;
     await undoRestore(shell.ports, phase.report.undo);
@@ -63,6 +93,7 @@ export function RestorePanel({ shell }: { shell: Shell }) {
     if (e.key === "ArrowDown") setPicked((p) => Math.min(p + 1, saves.length - 1));
     if (e.key === "ArrowUp") setPicked((p) => Math.max(p - 1, 0));
     if (e.key === "Enter") void restore();
+    if (e.key === "Delete") void remove(picked);
   };
 
   const now = new Date();
@@ -72,6 +103,7 @@ export function RestorePanel({ shell }: { shell: Shell }) {
       <div className="top">
         <span className="label">{phase.kind === "done" ? "Back on stand" : "Restore"}</span>
         <span className="meta">{settings?.pc}</span>
+        <WindowControls shell={shell} which="restore" />
       </div>
 
       {phase.kind === "restoring" ? (
@@ -122,7 +154,7 @@ export function RestorePanel({ shell }: { shell: Shell }) {
             <button className="btn primary" onClick={() => void shell.show("settings")}>Open settings</button>
           </div>
         </>
-      ) : saves && saves.length === 0 ? (
+      ) : saves && saves.length === 0 && !deleted ? (
         <>
           <h1>No saves yet</h1>
           <p className="lead">Press {settings?.saveShortcut ?? "Ctrl+Alt+S"} any time to save where you are.</p>
@@ -138,27 +170,31 @@ export function RestorePanel({ shell }: { shell: Shell }) {
               const at = new Date(entry.save.created);
               const { apps } = summarise(entry.save.windows);
               return (
-                <button
-                  key={entry.path}
-                  className="save"
-                  role="listitem"
-                  aria-pressed={i === picked}
-                  onClick={() => setPicked(i)}
-                  onDoubleClick={() => void restore()}
-                >
-                  <span className="row meta">
-                    <span>
-                      {whenLabel(at, now)} · {entry.save.pc}
-                      {entry.save.setup ? ` · ${entry.save.setup}` : ""}
+                <div key={entry.path} className={`save-wrap${i === picked ? " picked" : ""}`} role="listitem">
+                  <button className="save" aria-pressed={i === picked} onClick={() => setPicked(i)} onDoubleClick={() => void restore()}>
+                    <span className="row meta">
+                      <span>
+                        {whenLabel(at, now)} · {entry.save.pc}
+                        {entry.save.setup ? ` · ${entry.save.setup}` : ""}
+                      </span>
+                      {i === picked && <span className="ago">{agoLabel(at, now)}</span>}
                     </span>
-                    {i === picked && <span className="ago">{agoLabel(at, now)}</span>}
-                  </span>
-                  <span className={`note${entry.save.note ? "" : " empty"}`}>{entry.save.note || "No note"}</span>
-                  <span className="apps">{appsLine(apps)}</span>
-                </button>
+                    <span className={`note${entry.save.note ? "" : " empty"}`}>{entry.save.note || "No note"}</span>
+                    <span className="apps">{appsLine(apps)}</span>
+                  </button>
+                  <button className="del" aria-label="Delete this save" title="Delete (Del)" onClick={() => void remove(i)}>
+                    <Bin />
+                  </button>
+                </div>
               );
             })}
           </div>
+          {deleted && (
+            <div className="notice undo" role="status">
+              <span>Deleted “{deleted.label}”</span>
+              <button className="btn" onClick={() => void unDelete()}>Undo</button>
+            </div>
+          )}
           {phase.kind === "error" && <div className="notice warn" role="alert">{phase.message}</div>}
           <div className="actions">
             <label className="check">
