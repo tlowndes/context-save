@@ -92,3 +92,20 @@ h1 { margin: 0; font-size: 22px; font-weight: 600; }
 .path .field { flex: 1; font-family: var(--mono); font-size: 12px; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Window controls (frameless panels) */
+.wc { display: flex; gap: 2px; margin-left: 8px; margin-right: -8px; -webkit-app-region: no-drag; }
+.wc-btn { width: 32px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.wc-btn:hover { background: var(--chip); color: var(--text); }
+.wc-btn.close:hover { background: #c42b1c; color: #fff; }
+.wc-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Save cards with a delete button */
+.save-wrap { position: relative; display: flex; }
+.save-wrap .save { flex: 1; padding-right: 52px; }
+.del { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; }
+.save-wrap:hover .del, .save-wrap:focus-within .del, .save-wrap.picked .del { opacity: 1; }
+.del:hover { color: var(--text); border-color: var(--line-soft); background: var(--chip); }
+.del:focus-visible { opacity: 1; outline: 2px solid var(--accent); outline-offset: 1px; }
+.notice.undo { display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 14px; }
+.notice.undo span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

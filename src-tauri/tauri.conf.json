@@ -22,7 +22,7 @@
         "decorations": false,
         "resizable": false,
         "alwaysOnTop": true,
-        "skipTaskbar": true,
+        "skipTaskbar": false,
         "visible": false
       },
       {
@@ -35,7 +35,7 @@
         "decorations": false,
         "resizable": false,
         "alwaysOnTop": true,
-        "skipTaskbar": true,
+        "skipTaskbar": false,
         "visible": false
       },
       {

@@ -34,6 +34,17 @@ pub fn hide(app: &AppHandle, label: &str) {
     }
 }
 
+pub fn minimise(app: &AppHandle, label: &str) {
+    if let Some(w) = app.get_webview_window(label) {
+        let _ = w.minimize();
+    }
+}
+
+#[tauri::command]
+pub fn minimise_window(app: AppHandle, which: String) {
+    minimise(&app, &which);
+}
+
 #[tauri::command]
 pub fn show_window(app: AppHandle, which: String) {
     match which.as_str() {

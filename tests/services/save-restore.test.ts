@@ -124,3 +124,16 @@ describe("restoring", () => {
     expect(state.windows).toHaveLength(before.length);
   });
 });
+
+describe("deleting saves", () => {
+  it("removes a save and Undo puts it back word for word", async () => {
+    const { removeSave, putBack } = await import("../../src/services/saves");
+    const { ports, state, saved } = await savedSession();
+    const before = state.files.get(saved.path);
+    const gone = await removeSave(ports, saved.path);
+    expect(await listSaves(ports, settings)).toEqual([]);
+    await putBack(ports, gone);
+    expect(state.files.get(saved.path)).toBe(before);
+    expect((await listSaves(ports, settings)).map((e) => e.path)).toEqual([saved.path]);
+  });
+});

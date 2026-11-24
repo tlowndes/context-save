@@ -3,6 +3,7 @@ import { appName } from "../core/apps";
 import { userWindows } from "../core/capture";
 import { whenLabel } from "../core/time";
 import type { AppSettings, Shell } from "../platform/desktop";
+import { WindowControls } from "./WindowControls";
 import { deleteSave, saveContext, takeSnapshot, type Saved, type Snapshot } from "../services/saves";
 
 type Phase = { kind: "edit" } | { kind: "saving" } | { kind: "saved"; saved: Saved } | { kind: "error"; message: string };
@@ -73,6 +74,7 @@ export function SaveBox({ shell }: { shell: Shell }) {
         <span className="meta">
           {pad(at.getHours())}:{pad(at.getMinutes())} · {settings?.pc ?? ""}
         </span>
+        <WindowControls shell={shell} which="save" />
       </div>
 
       {settings && !settings.vault ? (
